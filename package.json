@@ -32,7 +32,7 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "mocha": "^7.0.1",
-    "mochawesome": "^4.1.0"
+    "mochawesome": "^5.0.0"
   },
   "dependencies": {
     "@mconnect/cache": "^0.2.0",
