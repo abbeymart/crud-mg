@@ -1,0 +1,19 @@
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+
+# Dependency directory
+# https://docs.npmjs.com/cli/shrinkwrap#caveats
+node_modules
+data
+
+# test report
+mochawesome-report
+
+.idea
+.vscode

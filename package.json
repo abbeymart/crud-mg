@@ -1,0 +1,45 @@
+{
+  "name": "@mconnect/crud-mg",
+  "version": "0.1.0",
+  "description": "mConnect MongoDB CRUD operations, crud-mongo re-writes",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha --timeout 5000 --recursive --reporter mochawesome"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abbeymart/crud-mg.git"
+  },
+  "keywords": [
+    "crud",
+    "mongo",
+    "create",
+    "read",
+    "update",
+    "delete",
+    "records",
+    "data"
+  ],
+  "author": "Abi Akindele [abbeymart | mconnect.biz]",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/abbeymart/crud-mg/issues"
+  },
+  "homepage": "https://github.com/abbeymart/crud-mg#readme",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^7.0.1",
+    "mochawesome": "^4.1.0"
+  },
+  "dependencies": {
+    "@mconnect/cache": "^0.2.0",
+    "@mconnect/res-messages": "^0.2.0",
+    "@mconnect/translog": "^0.4.1",
+    "@mconnect/utils": "^0.2.1",
+    "@mconnect/validate-crud": "^0.3.0",
+    "mongodb": "^3.5.3"
+  }
+}
