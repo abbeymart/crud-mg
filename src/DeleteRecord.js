@@ -18,7 +18,7 @@ const {ValidateCrud}     = require('@mconnect/validate-crud');
 const {checkDb}    = require('./common/crudHelpers');
 const checkAccess  = require('./common/checkAccess');
 const {mcMessages} = require('./locales/getMessage');
-const CrudRecord = require('./CrudRecord');
+const CrudRecord   = require('./CrudRecord');
 
 function DeleteRecord1(appDb, params, options = {}) {
     // ensure a new instance is returned, if constructor function is called without new
@@ -409,11 +409,13 @@ DeleteRecord1.prototype.deleteRecord = async function () {
     });
 };
 
-class DeleteRecord extends CrudRecord{
+class DeleteRecord extends CrudRecord {
     constructor(appDb, params, options = {}) {
-        super(appDb, params, options );
+        super(appDb, params, options);
 
         // CRUD instance variables
+        this.db          = null;
+        this.coll        = null;
         this.docIds      = [];
         this.currentRecs = [];
     }
@@ -439,6 +441,9 @@ class DeleteRecord extends CrudRecord{
         // delete / remove item(s) by docId(s)
         if (this.paramItems.docId.length >= 1) {
             try {
+                // use / activate database
+                this.db   = await this.dbConnect();
+                this.coll = db.collection(this.paramItems.coll);
                 return new Promise(async (resolve) => {
                     // check if records exist, for delete and audit-log
                     const recExist = await this.getCurrentRecord();
@@ -473,6 +478,9 @@ class DeleteRecord extends CrudRecord{
         const isAdmin = this.paramItems.isAdmin;
         if (Object.keys(this.paramItems.queryParams).length && isAdmin) {
             try {
+                // use / activate database
+                this.db   = await this.dbConnect();
+                this.coll = db.collection(this.paramItems.coll);
                 return new Promise(async (resolve) => {
                     // check if records exist, for delete and audit-log
                     const recExist = await this.getCurrentRecordByParams();

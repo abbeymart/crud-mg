@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-05
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-06
  * @Company: mConnect.biz | @License: MIT
  * @Description: create/update method => insert/update one or many records/documents
  */
@@ -267,6 +267,7 @@ SaveRecord1.prototype.saveRecord = async function () {
                     });
                 }
             }
+
             // current records, prior to update
             const currentRecords = await col.find({
                 _id: {
@@ -457,17 +458,38 @@ SaveRecord1.prototype.saveRecord = async function () {
 
 class SaveRecord extends CrudRecord {
     constructor(appDb, params, options = {}) {
-        super(appDb, params, options = {});
+        super(appDb, params, options);
         // CRUD instance variables
-        this.createItems     = [];
-        this.updateItems     = [];
-        this.docIds          = [];
-        this.currentRecs     = [];
-        this.isRecExist      = true;
-        this.recExistMessage = 'Save error or duplicate records exist: ';
+        this.db                  = null;
+        this.coll                = null;
+        this.userId              = '';
+        this.isAdmin             = false;
+        this.createItems         = [];
+        this.updateItems         = [];
+        this.docIds              = [];
+        this.currentRecs         = [];
+        this.roleServices        = [];
+        this.isRecExist          = true;
+        this.actionAuthorized    = false;
+        this.recExistMessage     = 'Save / update error or duplicate records exist: ';
+        this.unAuthorizedMessage = 'Action / task not authorised or permitted ';
     }
 
     async saveRecord() {
+        // Check/validate the attributes / parameters
+        const dbCheck = checkDb(this.dbConnect);
+        if (dbCheck && Object.keys(dbCheck).length > 0) {
+            return dbCheck;
+        }
+        const auditDbCheck = checkDb(this.auditDb);
+        if (auditDbCheck && Object.keys(auditDbCheck).length > 0) {
+            return auditDbCheck;
+        }
+        const accessDbCheck = checkDb(this.accessDb);
+        if (accessDbCheck && Object.keys(accessDbCheck).length > 0) {
+            return accessDbCheck;
+        }
+
         const validateRecord = ValidateCrud({messages: this.mcMessages});
 
         const errors = validateRecord.validateSaveRecord(this.paramItems);
@@ -475,38 +497,115 @@ class SaveRecord extends CrudRecord {
             return getParamsMessage(errors);
         }
 
-        // validate current user active status: by token/userId and loginRequired status
-        if (this.loginRequired && !this.paramItems.token) {
+        // validate current user active status: by token and/or user/loggedIn-status
+        let userActive   = false,
+            userId       = '',
+            isAdmin      = false,
+            //            userRole     = '',
+            //            userRoles    = [],
+            roleServices = [];
+
+        // role-assignment / access rights
+        const userStatus = await checkAccess(this.accessDb, {
+            accessColl: this.accessColl,
+            userColl  : this.userColl,
+            token     : this.paramItems.token,
+            userInfo  : this.paramItems.userInfo,
+            messages  : this.messages,
+        });
+
+        if (userStatus.code === 'success') {
+            userActive = userStatus.value.userActive;
+            userId     = userStatus.value.userId;
+            isAdmin    = userStatus.value.isAdmin;
+            // userRole     = userStatus.value.userRole;
+            // userRoles    = userStatus.value.userRoles;
+            roleServices = userStatus.value.roleServices;
+
+            // set user-id instance value
+            this.userId       = userId;
+            this.isAdmin      = isAdmin;
+            this.roleServices = roleServices;
+        }
+
+        // user-active-status
+        if (!(userActive && userId)) {
             return getResMessage('unAuthorized');
         }
 
-        // determine update / create items from actionParams
-        this.paramItems.actionParams.forEach(item => {
-            // set parentId
-            if (!item.parentId) {
-                item.parentId = '';
-            }
-            if (item._id) {
-                item.updatedBy   = this.userId;
-                item.updatedDate = new Date();
-                this.updateItems.push(item);
-                this.docIds.push(item._id);
-            } else {
-                // exclude _id attribute, if present (optional)
-                const {_id, ...otherParams} = item;
-                otherParams.createdBy       = this.userId;
-                otherParams.createdDate     = new Date();
-                this.createItems.push(otherParams);
-            }
-        });
+        // determine update / create (new) items from actionParams
+        let updateItems = [],
+            docIds      = [],
+            createItems = [];
 
-        // exclude _id attribute, if present (optional) from queryParams
-        const {_id, ...otherParams} = this.paramItems.queryParams;
-        this.paramItems.queryParams = otherParams;
+        // Ensure the _id for actionParams are of type mongoDb-ObjectId, for create / update actions
+        if (this.paramItems.actionParams.length > 0) {
+            this.paramItems.actionParams.forEach(item => {
+                // transform/cast i, from string, to mongoDB-ObjectId
+                Object.keys(item).forEach(itemKey => {
+                    // simplify checking key that ends with id/ID/Id/iD, using toLowerCase()
+                    if (itemKey.toString().toLowerCase().endsWith('id')) {
+                        if (typeof item[itemKey] === 'string' && item[itemKey] !== '') {
+                            item[itemKey] = ObjectId(item[itemKey]);
+                        }
+                    }
+                });
+                if (item._id) {
+                    // update/existing record
+                    item.updatedBy   = userId;
+                    item.updatedDate = new Date();
+                    updateItems.push(item);
+                    docIds.push(item._id);
+                } else {
+                    // exclude any traces of _id without specified/concrete value ('', null, undefined), if present
+                    // eslint-disable-next-line no-unused-vars
+                    const {_id, ...saveParams} = item;
+                    item                       = saveParams;
+                    // create/new record
+                    item.createdBy             = userId;
+                    item.createdDate           = new Date();
+                    createItems.push(item);
+                }
+            });
+
+            // instance values
+            this.createItems = createItems;
+            this.updateItems = updateItems;
+            this.docIds      = docIds;
+        }
+
+        // for queryParams, exclude _id, if present
+        if (this.paramItems.queryParams && Object.keys(this.paramItems.queryParams).length > 0) {
+            const {_id, ...otherParams} = this.paramItems.queryParams;
+            this.paramItems.queryParams = otherParams;
+        }
+
+        // Ensure the _id for existParams are of type mongoDb-ObjectId, for create / update actions
+        if (this.paramItems.existParams.length > 0) {
+            this.paramItems.existParams.forEach(item => {
+                // transform/cast i, from string, to mongoDB-ObjectId
+                Object.keys(item).forEach(itemKey => {
+                    if (itemKey.toString().toLowerCase().endsWith('id')) {
+                        // create
+                        if (typeof item[itemKey] === 'string' && item[itemKey] !== '') {
+                            item[itemKey] = ObjectId(item[itemKey]);
+                        }
+                        // update
+                        if (typeof item[itemKey] === 'object' && item[itemKey]['$ne'] &&
+                            (item[itemKey]['$ne'] !== '' || item[itemKey]['$ne'] !== null)) {
+                            item[itemKey]['$ne'] = ObjectId(item[itemKey]['$ne'])
+                        }
+                    }
+                });
+            });
+        }
 
         // create records/documents
         if (this.createItems.length > 0 && this.createItems.length <= this.paramItems.existParams.length) {
             try {
+                // use / activate database
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
                 return new Promise(async (resolve) => {
                     // check duplicate records, i.e. if similar records exist
                     const recExist = await this.checkRecExist();
@@ -528,6 +627,10 @@ class SaveRecord extends CrudRecord {
         // update existing records/documents
         if (this.updateItems.length > 0 && this.updateItems.length <= this.paramItems.existParams.length) {
             try {
+                // use / activate database
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
+
                 return new Promise(async (resolve) => {
                     // check duplicate records, i.e. if similar records exist
                     const recExist = await this.checkRecExist();
@@ -541,8 +644,52 @@ class SaveRecord extends CrudRecord {
                         resolve(currentRec);
                     }
 
+                    // check/validate action permissions
+                    const taskPermitted = await this.taskPermitted();
+                    if (!(taskPermitted.code === 'success')) {
+                        resolve(taskPermitted);
+                    }
+
                     // update records
                     const updateRec = await this.updateRecord();
+                    resolve(updateRec);
+                });
+            } catch (e) {
+                return getResMessage('updateError', {
+                    message: `Error updating record(s): ${e.message ? e.message : ""}`,
+                    value  : e,
+                });
+            }
+        }
+
+        // update action(s) by queryParams: permitted by userId (own records), admin(all records) or role
+        if (isAdmin && docIds.length < 1 && Object.keys(this.paramItems.queryParams).length > 0 && this.paramItems.actionParams.length === 1) {
+            try {
+                // use / activate database
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
+
+                return new Promise(async (resolve) => {
+                    // check duplicate records, i.e. if similar records exist
+                    const recExist = await this.checkRecExist();
+                    if (!(recExist.code === 'success')) {
+                        resolve(recExist);
+                    }
+
+                    // get current records update and audit log
+                    const currentRec = await this.getCurrentRecordByParams();
+                    if (!(currentRec.code === 'success')) {
+                        resolve(currentRec);
+                    }
+
+                    // check/validate action permissions
+                    const taskPermitted = await this.taskPermittedByParams();
+                    if (!(taskPermitted.code === 'success')) {
+                        resolve(taskPermitted);
+                    }
+
+                    // update records
+                    const updateRec = await this.updateRecordByParams();
                     resolve(updateRec);
                 });
             } catch (e) {
@@ -561,58 +708,26 @@ class SaveRecord extends CrudRecord {
 
     async checkRecExist() {
         // check if items/records exist: uniqueness
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             for (const existItem of this.paramItems.existParams) {
-                this.coll.find(existItem, (err, recExist) => {
-                    console.log('check-records-exist');
-                    if (err) {
-                        resolve(getResMessage('saveError', {
-                            message: "Error creating or updating the requested record(s). Please retry",
-                            value  : err,
-                        }));
-                    } else if (recExist && Array.isArray(recExist) && recExist.length) {
-                        // capture attributes for duplicateRec checking
-                        let attributesMessage = '';
-                        Object.entries(existItem)
-                            .forEach(([key, value]) => {
-                                attributesMessage = attributesMessage ? `${attributesMessage} | ${key}: ${value}` : `${key}: ${value}`;
-                            });
-                        this.recExistMessage = this.recExistMessage + attributesMessage;
-                        resolve(getResMessage('recExist', {
-                            message: `Record with similar combined attributes [${attributesMessage}] exists. Provide unique record attributes to create new record(s).`,
-                        }));
-                    } else {
-                        this.isRecExist = false;
-                        resolve(getResMessage('success', {
-                            message: 'no integrity conflict',
-                        }));
-                    }
-                });
-            }
-        });
-    }
-
-    async getCurrentRecord() {
-        // current records, prior to update, for audit-log
-        return new Promise((resolve) => {
-            this.coll.find({_id: {$in: this.docIds}}, (err, currentRecords) => {
-                console.log('get-current-records');
-                this.currentRecs = currentRecords;
-                if (err) {
-                    resolve(getResMessage('updateError', {
-                        message: "Error updating the requested record(s).",
-                        value  : err,
-                    }));
-                } else if (currentRecords && Array.isArray(currentRecords) && currentRecords.length < 1) {
-                    resolve(getResMessage('updateError', {
-                        message: "Record(s) requested for updates, not found.",
+                let recordExist = await this.coll.findOne(existItem);
+                if (recordExist) {
+                    // capture attributes for duplicateRec checking
+                    let attributesMessage = '';
+                    Object.entries(existItem)
+                        .forEach(([key, value]) => {
+                            attributesMessage = attributesMessage ? `${attributesMessage} | ${key}: ${value}` : `${key}: ${value}`;
+                        });
+                    resolve(getResMessage('recExist', {
+                        message: `Record with similar combined attributes [${attributesMessage}] exists. Provide unique record attributes to create or update record(s).`,
                     }));
                 } else {
+                    this.isRecExist = false;
                     resolve(getResMessage('success', {
-                        message: 'record exists for update',
+                        message: 'no integrity conflict',
                     }));
                 }
-            });
+            }
         });
     }
 
@@ -621,14 +736,9 @@ class SaveRecord extends CrudRecord {
         return new Promise(async (resolve) => {
             try {
                 if (!this.isRecExist) {
-                    this.coll.insert(this.createItems, async (err, records) => {
-                        console.log('create-task');
-                        if (err) {
-                            resolve(getResMessage('insertError', {
-                                message: 'Error creating new record(s). Please retry.',
-                                value  : err,
-                            }));
-                        }
+                    // insert/create multiple records and log in audit
+                    const records = await this.coll.insertMany(this.createItems);
+                    if (records.insertedCount > 0) {
                         // delete cache
                         await cacheHash.deleteCache(this.paramItems.coll);
                         // check the audit-log settings - to perform audit-log
@@ -636,10 +746,10 @@ class SaveRecord extends CrudRecord {
                         resolve(getResMessage('success', {
                             message: 'Record(s) created successfully.',
                             value  : {
-                                docCount: records.length,
+                                docCount: records.insertedCount,
                             },
                         }));
-                    });
+                    }
                 } else {
                     resolve(getResMessage('recExist', {
                         message: this.recExistMessage,
@@ -647,8 +757,106 @@ class SaveRecord extends CrudRecord {
                 }
             } catch (e) {
                 resolve(getResMessage('insertError', {
-                    message: `Error inserting new record(s): ${e.message ? e.message : ""}`,
+                    message: `Error inserting/creating new record(s): ${e.message ? e.message : ""}`,
                     value  : e,
+                }));
+            }
+        });
+    }
+
+    async getCurrentRecord() {
+        // current records, prior to update, for audit-log
+        return new Promise(async (resolve) => {
+            // current records, prior to update
+            const currentRecords = await col.find({
+                _id: {
+                    $in: docIds
+                }
+            }).toArray();
+
+            if (currentRecords.length < 1) {
+                resolve(getResMessage('notFound', {
+                    message: "Record(s) requested for updates, not found.",
+                }));
+            } else {
+                this.currentRecs = currentRecords;
+                resolve(getResMessage('success', {
+                    message: 'record exists for update',
+                }));
+            }
+        });
+    }
+
+    async getCurrentRecordByParams() {
+        // current records, prior to update, for audit-log
+        return new Promise(async (resolve) => {
+            // current records, prior to update
+            const currentRecords = await col.find(this.paramItems.queryParams).toArray();
+            if (currentRecords.length < 1) {
+                return getResMessage('notFound', {
+                    message: 'Record(s) requested for updates, not found.',
+                });
+            } else {
+                this.currentRecs = currentRecords;
+                resolve(getResMessage('success', {
+                    message: 'record exists for update',
+                }));
+            }
+        });
+    }
+
+    async taskPermitted() {
+        return new Promise(async (resolve) => {
+            // determine permission by userId/owner, role-assignment(canUpdate) or admin
+            const rolePermitted = await this.docIds.every(id => {
+                // check roleServices permission (canUpdate):
+                return this.roleServices.some(role => {
+                    return (role.service === id && role.canUpdate);
+                })
+            });
+
+            // permit update of users collection if user._id === userId (i.e. by record owner/user)
+            let userAllowedUpdate = false;
+            if (this.paramItems.coll === this.userColl) {
+                userAllowedUpdate = await this.updateItems.every(item => {
+                    // to compare ObjectId, convert to strings
+                    return item._id.toString() === this.userId.toString();
+                });
+            }
+
+            // permit task, by owner, role or admin only
+            const taskPermitted = await this.currentRecords.every(item => {
+                return (item.createdBy.toString() === this.userId.toString());
+            }) || rolePermitted || userAllowedUpdate || this.isAdmin;
+
+            if (!taskPermitted) {
+                resolve(getResMessage('unAuthorized', {
+                    message: 'You are not authorized to update record(s)',
+                }));
+            } else {
+                this.actionAuthorized = true;
+                resolve(getResMessage('success', {
+                    message: 'action authorised / permitted',
+                }));
+            }
+        });
+    }
+
+    async taskPermittedByParams() {
+        return new Promise(async (resolve) => {
+            // determine permission by userId/owner, role-assignment(canUpdate) or admin
+            // determine permission by userId/owner, role-assignment(canUpdate) or admin
+            const taskPermitted = await this.currentRecords.every(item => {
+                return (item.createdBy.toString() === userId.toString());
+            }) || this.isAdmin;
+            if (!taskPermitted) {
+                return getResMessage('unAuthorized', {
+                    message: 'You are not authorized to update record(s)',
+                });
+            } else {
+                this.actionAuthorized = true;
+                resolve(getResMessage('success', {
+                    message: 'action authorised / permitted',
                 }));
             }
         });
@@ -658,43 +866,117 @@ class SaveRecord extends CrudRecord {
         // updated records
         return new Promise(async (resolve) => {
             try {
+                // check/validate update/upsert command for multiple records
                 let updateCount = 0;
-                if (!this.isRecExist) {
-                    for (const updateItem of this.updateItems) {
+
+                if (!this.isRecExist && this.actionAuthorized) {
+                    // update one record
+                    if (this.updateItems.length === 1) {
                         // destruct _id /other attributes
-                        const {_id, ...otherParams} = updateItem;
-                        this.coll.update({_id: _id}, {$set: otherParams}, async (err, numUpdated) => {
-                            console.log('update-task-1');
-                            if (err) {
-                                resolve(getResMessage('updateError', {
-                                    message: "Error updating the requested record(s).",
-                                    value  : err,
-                                }));
+                        const {
+                                  _id,
+                                  ...otherParams
+                              } = updateItems[0];
+                        // control isAdmin setting:
+                        if (this.paramItems.coll === this.userColl && !this.isAdmin) {
+                            otherParams.profile.isAdmin = false;
+                        }
+                        const updateResult = await this.coll.updateOne({
+                            _id: _id
+                        }, {
+                            $set: otherParams
+                        });
+                        updateCount += Number(updateResult.modifiedCount);
+                    }
+
+                    // update multiple records
+                    if (this.updateItems.length > 1) {
+                        for (let i = 0; i < this.updateItems.length; i++) {
+                            const item = this.updateItems[i];
+                            // destruct _id /other attributes
+                            const {
+                                      _id,
+                                      ...otherParams
+                                  }    = item;
+                            // control isAdmin setting:
+                            if (this.paramItems.coll === this.userColl && !this.isAdmin) {
+                                otherParams.profile.isAdmin = false;
                             }
-                            if (numUpdated > 0) {
-                                updateCount += numUpdated;
-                            }
-                            if (updateCount === this.updateItems.length) {
-                                console.log('update-task-2');
-                                if (updateCount > 0) {
-                                    // delete cache
-                                    await cacheHash.deleteCache(this.paramItems.coll);
-                                    // check the audit-log settings - to perform audit-log
-                                    if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, this.currentRecs, this.updateItems, this.userId);
-                                    resolve(getResMessage('success', {
-                                        message: 'Record(s) updated successfully.',
-                                        value  : {
-                                            docCount: updateCount,
-                                        },
-                                    }));
-                                } else {
-                                    resolve(getResMessage('updateError', {
-                                        message: 'No records updated. Please retry.',
-                                    }));
-                                }
-                            }
+                            const updateResult = await this.coll.updateOne({
+                                _id: _id
+                            }, {
+                                $set: otherParams
+                            });
+                            // updateCount += Number( updateResult.result.n );
+                            updateCount += Number(updateResult.modifiedCount);
+                        }
+                    }
+
+                    if (updateCount > 0) {
+                        // delete cache
+                        await cacheHash.deleteCache(this.paramItems.coll);
+                        // check the audit-log settings - to perform audit-log
+                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, currentRecords, updateItems, userId);
+                        resolve(getResMessage('success', {
+                            message: 'Record(s) updated successfully.',
+                            value  : {
+                                docCount: updateCount,
+                            },
+                        }));
+                    } else {
+                        resolve(getResMessage('updateError', {
+                            message: 'No records updated. Please retry.',
+                        }));
+                    }
+                } else if (this.actionAuthorized) {
+                    resolve(getResMessage('unAuthorized', {
+                        message: this.unAuthorizedMessage,
+                    }));
+                } else {
+                    resolve(getResMessage('recExist', {
+                        message: this.recExistMessage,
+                    }));
+                }
+            } catch (e) {
+                resolve(getResMessage('updateError', {
+                    message: `Error updating record(s): ${e.message ? e.message : ""}`,
+                    value  : e,
+                }));
+            }
+        });
+    }
+
+    async updateRecordByParams() {
+        // updated records
+        return new Promise(async (resolve) => {
+            try {
+                // check/validate update/upsert command for multiple records
+                if (!this.isRecExist && this.actionAuthorized) {
+                    // update multiple records
+                    // destruct _id /other attributes
+                    const {_id, ...otherParams} = this.paramItems.actionParams[0];
+                    // include item stamps: userId and date
+                    otherParams.updatedBy       = this.userId;
+                    otherParams.updatedDate     = new Date();
+                    const updateResult          = await this.coll.updateMany(this.paramItems.queryParams, {
+                        $set: otherParams
+                    });
+                    if (updateResult.modifiedCount > 0) {
+                        // delete cache
+                        await cacheHash.deleteCache(this.paramItems.coll);
+                        // check the audit-log settings - to perform audit-log
+                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, currentRecords, otherParams, userId);
+                        return getResMessage('success', {
+                            message: 'Requested action(s) performed successfully.',
+                            value  : {
+                                docCount: updateResult.modifiedCount,
+                            },
                         });
                     }
+                } else if (this.actionAuthorized) {
+                    resolve(getResMessage('unAuthorized', {
+                        message: this.unAuthorizedMessage,
+                    }));
                 } else {
                     resolve(getResMessage('recExist', {
                         message: this.recExistMessage,
