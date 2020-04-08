@@ -35,6 +35,7 @@
     "mochawesome": "^5.0.0"
   },
   "dependencies": {
+    "@mconnect/auditlog": "^0.1.0",
     "@mconnect/cache": "^0.2.0",
     "@mconnect/res-messages": "^0.2.0",
     "@mconnect/translog": "^0.4.1",

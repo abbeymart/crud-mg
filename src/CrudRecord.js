@@ -1,12 +1,12 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-21 | @Updated: 2020-04-05
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-21 | @Updated: 2020-04-08
  * @Company: mConnect.biz | @License: MIT
  * @Description: crud-mg base class, for all CRUD operations
  */
 
 // Import required module/function(s)
-const {TransLog}   = require('@mconnect/translog');
-const {mcMessages} = require('./locales/getMessage');
+const {newAuditLog} = require('@mconnect/auditlog');
+const {mcMessages}  = require('./locales/getMessage');
 
 class CrudRecord {
     constructor(appDb, params, options = {}) {
@@ -51,7 +51,7 @@ class CrudRecord {
         this.mcMessages    = options && options.mcMessages && (typeof options.mcMessages === 'object') ?
                              options.mcMessages : mcMessages;
 
-        this.transLog = TransLog(this.auditDb, {
+        this.transLog = newAuditLog(this.auditDb, {
             auditColl,
             messages     : this.mcMessages,
             maxQueryLimit: this.maxQueryLimit,
