@@ -61,8 +61,6 @@ class SaveRecord extends CrudRecord {
         let userActive   = false,
             userId       = '',
             isAdmin      = false,
-            //            userRole     = '',
-            //            userRoles    = [],
             roleServices = [];
 
         // role-assignment / access rights
@@ -78,8 +76,6 @@ class SaveRecord extends CrudRecord {
             userActive = userStatus.value.userActive;
             userId     = userStatus.value.userId;
             isAdmin    = userStatus.value.isAdmin;
-            // userRole     = userStatus.value.userRole;
-            // userRoles    = userStatus.value.userRoles;
             roleServices = userStatus.value.roleServices;
 
             // set user-id instance value
@@ -88,7 +84,7 @@ class SaveRecord extends CrudRecord {
             this.roleServices = roleServices;
         }
 
-        // user-active-status
+        // user-active-status validation/check
         if (!(userActive && userId)) {
             return getResMessage('unAuthorized');
         }
@@ -98,10 +94,10 @@ class SaveRecord extends CrudRecord {
             docIds      = [],
             createItems = [];
 
-        // Ensure the _id for actionParams are of type mongoDb-ObjectId, for create / update actions
+        // Ensure the _id for actionParams are of type mongoDb-ObjectId, for update actions
         if (this.paramItems.actionParams.length > 0) {
             this.paramItems.actionParams.forEach(item => {
-                // transform/cast i, from string, to mongoDB-ObjectId
+                // transform/cast id, from string, to mongoDB-ObjectId
                 Object.keys(item).forEach(itemKey => {
                     // simplify checking key that ends with id/ID/Id/iD, using toLowerCase()
                     if (itemKey.toString().toLowerCase().endsWith('id')) {
