@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-07
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-09
  * Updated 2018-04-08, prototype-to-class
  * @Company: mConnect.biz | @License: MIT
  * @Description: delete one or more records / documents
@@ -56,8 +56,6 @@ class DeleteRecord extends CrudRecord {
         let userActive   = false,
             userId       = '',
             isAdmin      = false,
-            //            userRole     = '',
-            //            userRoles    = [],
             roleServices = [];
 
         // role-assignment / access rights
@@ -73,8 +71,6 @@ class DeleteRecord extends CrudRecord {
             userActive = userStatus.value.userActive;
             userId     = userStatus.value.userId;
             isAdmin    = userStatus.value.isAdmin;
-//            userRole     = userStatus.value.userRole;
-//            userRoles    = userStatus.value.userRoles;
             roleServices = userStatus.value.roleServices;
 
             // set user-id instance value

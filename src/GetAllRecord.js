@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2017-01-09 | @Updated: 2020-04-05
+ * @Author: abbeymart | Abi Akindele | @Created: 2017-01-09 | @Updated: 2020-04-09
  * @Company: mConnect.biz | @License: MIT
  * @Description: get all active records, by params, by role / by userId | cache-in-memory, lookup-items <= 1000 records
  */
@@ -10,8 +10,9 @@ const {cacheHash}        = require('@mconnect/cache');
 const {ValidateCrud}     = require('@mconnect/validate-crud');
 const {getParamsMessage} = require('@mconnect/utils')();
 const {checkDb}          = require('./common/crudHelpers');
+const CrudRecord         = require('./CrudRecord');
 
-class GetAllRecord extends GetAllRecord {
+class GetAllRecord extends CrudRecord {
     constructor(appDb, params, options = {}) {
         super(appDb, params, options);
     }

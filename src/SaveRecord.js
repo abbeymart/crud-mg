@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-07
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-09
  * @Company: mConnect.biz | @License: MIT
  * @Description: create/update method => insert/update one or many records/documents
  */
@@ -218,7 +218,7 @@ class SaveRecord extends CrudRecord {
             }
         }
 
-        // update action(s) by queryParams: permitted by userId (own records), admin(all records) or role
+        // update records/documents by queryParams: permitted by userId (own records), admin(all records) or role
         if (isAdmin && docIds.length < 1 && Object.keys(this.paramItems.queryParams).length > 0 && this.paramItems.actionParams.length === 1) {
             try {
                 // use / activate database
