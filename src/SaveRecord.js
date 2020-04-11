@@ -169,8 +169,8 @@ class SaveRecord extends CrudRecord {
                         resolve(recExist);
                     }
                     // create records
-                    const createRec = await this.createRecord();
-                    resolve(createRec);
+                    // const createRec = await this.createRecord();
+                    resolve(await this.createRecord());
                 });
             } catch (e) {
                 return getResMessage('insertError', {
@@ -207,8 +207,8 @@ class SaveRecord extends CrudRecord {
                     }
 
                     // update records
-                    const updateRec = await this.updateRecord();
-                    resolve(updateRec);
+                    // const updateRec = await this.updateRecord();
+                    resolve(await this.updateRecord());
                 });
             } catch (e) {
                 return getResMessage('updateError', {
@@ -324,9 +324,9 @@ class SaveRecord extends CrudRecord {
         // current records, prior to update, for audit-log
         return new Promise(async (resolve) => {
             // current records, prior to update
-            const currentRecords = await col.find({
+            const currentRecords = await this.coll.find({
                 _id: {
-                    $in: docIds
+                    $in: this.docIds
                 }
             }).toArray();
 
