@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-21 | @Updated: 2020-04-08
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-21 | @Updated: 2020-04-20
  * @Company: mConnect.biz | @License: MIT
  * @Description: crud-mg base class, for all CRUD operations
  */
@@ -30,6 +30,7 @@ class CrudRecord {
             childColl      : params && params.childColl || [],
             recursiveDelete: params && params.recursiveDelete || false,
         };
+        this.checkAccess   = true;
         this.dbConnect     = appDb;
         this.auditColl     = auditColl;
         this.serviceColl   = options && options.serviceColl ? options.serviceColl : 'services';

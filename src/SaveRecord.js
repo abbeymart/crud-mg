@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-09
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-20
  * @Company: mConnect.biz | @License: MIT
  * @Description: create/update method => insert/update one or many records/documents
  */
