@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-09
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-24
  * Updated 2018-04-08, prototype-to-class
  * @Company: mConnect.biz | @License: MIT
  * @Description: delete one or more records / documents
@@ -68,9 +68,9 @@ class DeleteRecord extends CrudRecord {
         });
 
         if (userStatus.code === 'success') {
-            userActive = userStatus.value.userActive;
-            userId     = userStatus.value.userId;
-            isAdmin    = userStatus.value.isAdmin;
+            userActive   = userStatus.value.userActive;
+            userId       = userStatus.value.userId;
+            isAdmin      = userStatus.value.isAdmin;
             roleServices = userStatus.value.roleServices;
 
             // set user-id instance value
@@ -193,6 +193,7 @@ class DeleteRecord extends CrudRecord {
             for (const existItem of this.paramItems.existParams) {
                 let recordExist = await this.coll.findOne(existItem);
                 if (recordExist) {
+                    this.isRecExist = true;
                     // capture attributes for duplicateRec checking
                     let attributesMessage = '';
                     Object.entries(existItem)
@@ -256,12 +257,22 @@ class DeleteRecord extends CrudRecord {
     async taskPermitted() {
         return new Promise(async (resolve) => {
             // determine permission by userId/owner, role-assignment(canUpdate) or admin
-            const rolePermitted = await this.docIds.every(id => {
-                // check roleServices permission (canDelete):
-                return this.roleServices.some(role => {
-                    return (role.service === id && role.canDelete);
-                })
+            // collection level permission
+            const serviceColl = this.db.collection(this.serviceColl);
+            const collInfo    = await serviceColl.find({
+                name: {$or: [this.paramItems.coll.toLowerCase(), (this.paramItems.coll[0].toUpperCase() + this.paramItems.coll.slice(1).toLowerCase())]},
+                type: "Collection"
             });
+
+            let rolePermitted = false;
+            if (this.docIds.length) {
+                rolePermitted = await this.docIds.every(id => {
+                    // check roleServices permission (canDelete):
+                    return this.roleServices.some(role => {
+                        return ((role.service === id || role.service === (collInfo ? collInfo._id : '')) && role.canDelete);
+                    })
+                });
+            }
 
             // permit task, by owner, role or admin only
             const taskPermitted = await this.currentRecords.every(item => {
@@ -270,7 +281,7 @@ class DeleteRecord extends CrudRecord {
 
             if (!taskPermitted) {
                 return getResMessage('unAuthorized', {
-                    message: 'You are not authorized to delete/remove the specified items/records',
+                    message: 'You are not authorized to perform the requested action/task',
                 });
             } else {
                 this.actionAuthorized = true;

@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-20
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-24
  * @Company: mConnect.biz | @License: MIT
  * @Description: create/update method => insert/update one or many records/documents
  */
@@ -73,9 +73,9 @@ class SaveRecord extends CrudRecord {
         });
 
         if (userStatus.code === 'success') {
-            userActive = userStatus.value.userActive;
-            userId     = userStatus.value.userId;
-            isAdmin    = userStatus.value.isAdmin;
+            userActive   = userStatus.value.userActive;
+            userId       = userStatus.value.userId;
+            isAdmin      = userStatus.value.isAdmin;
             roleServices = userStatus.value.roleServices;
 
             // set user-id instance value
@@ -139,7 +139,7 @@ class SaveRecord extends CrudRecord {
         // Ensure the _id for existParams are of type mongoDb-ObjectId, for create / update actions
         if (this.paramItems.existParams.length > 0) {
             this.paramItems.existParams.forEach(item => {
-                // transform/cast i, from string, to mongoDB-ObjectId
+                // transform/cast id, from string, to mongoDB-ObjectId
                 Object.keys(item).forEach(itemKey => {
                     if (itemKey.toString().toLowerCase().endsWith('id')) {
                         // create
@@ -168,8 +168,14 @@ class SaveRecord extends CrudRecord {
                     if (!(recExist.code === 'success')) {
                         resolve(recExist);
                     }
+
+                    // check/validate action permissions
+                    const taskPermitted = await this.createPermitted();
+                    if (!(taskPermitted.code === 'success')) {
+                        resolve(taskPermitted);
+                    }
+
                     // create records
-                    // const createRec = await this.createRecord();
                     resolve(await this.createRecord());
                 });
             } catch (e) {
@@ -207,7 +213,6 @@ class SaveRecord extends CrudRecord {
                     }
 
                     // update records
-                    // const updateRec = await this.updateRecord();
                     resolve(await this.updateRecord());
                 });
             } catch (e) {
@@ -268,6 +273,7 @@ class SaveRecord extends CrudRecord {
             for (const existItem of this.paramItems.existParams) {
                 let recordExist = await this.coll.findOne(existItem);
                 if (recordExist) {
+                    this.isRecExist       = true;
                     // capture attributes for duplicateRec checking
                     let attributesMessage = '';
                     Object.entries(existItem)
@@ -279,10 +285,16 @@ class SaveRecord extends CrudRecord {
                     }));
                 } else {
                     this.isRecExist = false;
-                    resolve(getResMessage('success', {
-                        message: 'no integrity conflict',
-                    }));
                 }
+            }
+            if (!this.isRecExist) {
+                resolve(getResMessage('success', {
+                    message: 'no integrity conflict',
+                }));
+            } else {
+                resolve(getResMessage('error', {
+                    message: 'unable to verify integrity conflict',
+                }));
             }
         });
     }
@@ -361,15 +373,54 @@ class SaveRecord extends CrudRecord {
         });
     }
 
+    async createPermitted() {
+        return new Promise(async (resolve) => {
+            // determine permission by role-assignment(canCreate) or admin, for collection by coll-id
+            const serviceColl   = this.db.collection(this.serviceColl);
+            const collInfo      = await serviceColl.find({
+                name: {$or: [this.paramItems.coll.toLowerCase(), (this.paramItems.coll[0].toUpperCase() + this.paramItems.coll.slice(1).toLowerCase())]},
+                type: "Collection"
+            });
+            const rolePermitted = await this.roleServices.some(role => {
+                return (role.service === (collInfo ? collInfo._id : '') && role.canCreate);
+            })
+
+            // permit task, by owner, role or admin only
+            const taskPermitted = rolePermitted || this.isAdmin;
+
+            if (!taskPermitted) {
+                this.actionAuthorized = false;
+                resolve(getResMessage('unAuthorized', {
+                    message: 'You are not authorized to update record(s)',
+                }));
+            } else {
+                this.actionAuthorized = true;
+                resolve(getResMessage('success', {
+                    message: 'action authorised / permitted',
+                }));
+            }
+        });
+    }
+
     async taskPermitted() {
         return new Promise(async (resolve) => {
             // determine permission by userId/owner, role-assignment(canUpdate) or admin
-            const rolePermitted = await this.docIds.every(id => {
-                // check roleServices permission (canUpdate):
-                return this.roleServices.some(role => {
-                    return (role.service === id && role.canUpdate);
-                })
+            // collection level permission
+            const serviceColl = this.db.collection(this.serviceColl);
+            const collInfo    = await serviceColl.find({
+                name: {$or: [this.paramItems.coll.toLowerCase(), (this.paramItems.coll[0].toUpperCase() + this.paramItems.coll.slice(1).toLowerCase())]},
+                type: "Collection"
             });
+
+            let rolePermitted = false;
+            if (this.docIds.length) {
+                rolePermitted = await this.docIds.every(id => {
+                    // check roleServices permission (canUpdate):
+                    return this.roleServices.every(role => {
+                        return ((role.service === id || role.service === (collInfo ? collInfo._id : '')) && role.canUpdate);
+                    })
+                });
+            }
 
             // permit update of users collection if user._id === userId (i.e. by record owner/user)
             let userAllowedUpdate = false;
@@ -386,8 +437,9 @@ class SaveRecord extends CrudRecord {
             }) || rolePermitted || userAllowedUpdate || this.isAdmin;
 
             if (!taskPermitted) {
+                this.actionAuthorized = false;
                 resolve(getResMessage('unAuthorized', {
-                    message: 'You are not authorized to update record(s)',
+                    message: 'You are not authorized to perform the requested action/task',
                 }));
             } else {
                 this.actionAuthorized = true;
@@ -401,20 +453,12 @@ class SaveRecord extends CrudRecord {
     async taskPermittedByParams() {
         return new Promise(async (resolve) => {
             // determine permission by userId/owner, role-assignment(canUpdate) or admin
-            // determine permission by userId/owner, role-assignment(canUpdate) or admin
-            const taskPermitted = await this.currentRecords.every(item => {
-                return (item.createdBy.toString() === userId.toString());
-            }) || this.isAdmin;
-            if (!taskPermitted) {
-                return getResMessage('unAuthorized', {
-                    message: 'You are not authorized to update record(s)',
-                });
-            } else {
-                this.actionAuthorized = true;
-                resolve(getResMessage('success', {
-                    message: 'action authorised / permitted',
-                }));
-            }
+            // ids of records to be deleted, from queryParams
+            this.docIds = [];           // reset docIds instance value
+            this.currentRecords.forEach(item => {
+                this.docIds.push(item._id);
+            });
+            resolve(await this.taskPermitted());
         });
     }
 
@@ -432,10 +476,13 @@ class SaveRecord extends CrudRecord {
                         const {
                                   _id,
                                   ...otherParams
-                              } = updateItems[0];
+                              } = this.updateItems[0];
                         // control isAdmin setting:
                         if (this.paramItems.coll === this.userColl && !this.isAdmin) {
-                            otherParams.profile.isAdmin = false;
+                            const currentRec            = await this.coll.find({_id: _id});
+                            otherParams.profile.isAdmin = currentRec && currentRec.profile && currentRec.profile.isAdmin ?
+                                                          currentRec.profile.isAdmin :
+                                                          false;
                         }
                         const updateResult = await this.coll.updateOne({
                             _id: _id
@@ -456,7 +503,10 @@ class SaveRecord extends CrudRecord {
                                   }    = item;
                             // control isAdmin setting:
                             if (this.paramItems.coll === this.userColl && !this.isAdmin) {
-                                otherParams.profile.isAdmin = false;
+                                const currentRec            = await this.coll.find({_id: _id});
+                                otherParams.profile.isAdmin = currentRec && currentRec.profile && currentRec.profile.isAdmin ?
+                                                              currentRec.profile.isAdmin :
+                                                              false;
                             }
                             const updateResult = await this.coll.updateOne({
                                 _id: _id
@@ -484,11 +534,11 @@ class SaveRecord extends CrudRecord {
                             message: 'No records updated. Please retry.',
                         }));
                     }
-                } else if (this.actionAuthorized) {
+                } else if (!this.actionAuthorized) {
                     resolve(getResMessage('unAuthorized', {
                         message: this.unAuthorizedMessage,
                     }));
-                } else {
+                } else if (this.isRecExist) {
                     resolve(getResMessage('recExist', {
                         message: this.recExistMessage,
                     }));
@@ -511,17 +561,21 @@ class SaveRecord extends CrudRecord {
                     // update multiple records
                     // destruct _id /other attributes
                     const {_id, ...otherParams} = this.paramItems.actionParams[0];
+                    // control isAdmin setting:
+                    if (this.paramItems.coll === this.userColl && !this.isAdmin) {
+                        otherParams.profile.isAdmin = false;
+                    }
                     // include item stamps: userId and date
-                    otherParams.updatedBy       = this.userId;
-                    otherParams.updatedDate     = new Date();
-                    const updateResult          = await this.coll.updateMany(this.paramItems.queryParams, {
+                    otherParams.updatedBy   = this.userId;
+                    otherParams.updatedDate = new Date();
+                    const updateResult      = await this.coll.updateMany(this.paramItems.queryParams, {
                         $set: otherParams
                     });
-                    if (updateResult.modifiedCount > 0) {
+                    if (Number(updateResult.modifiedCount) > 0) {
                         // delete cache
                         await cacheHash.deleteCache(this.paramItems.coll);
                         // check the audit-log settings - to perform audit-log
-                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, currentRecords, otherParams, userId);
+                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, this.currentRecords, otherParams, this.userId);
                         return getResMessage('success', {
                             message: 'Requested action(s) performed successfully.',
                             value  : {
@@ -529,11 +583,11 @@ class SaveRecord extends CrudRecord {
                             },
                         });
                     }
-                } else if (this.actionAuthorized) {
+                } else if (!this.actionAuthorized) {
                     resolve(getResMessage('unAuthorized', {
                         message: this.unAuthorizedMessage,
                     }));
-                } else {
+                } else if (this.isRecExist) {
                     resolve(getResMessage('recExist', {
                         message: this.recExistMessage,
                     }));

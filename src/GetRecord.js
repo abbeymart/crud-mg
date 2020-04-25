@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-09
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-24
  * @Company: mConnect.biz | @License: MIT
  * @Description: get records, by params, by role / by userId | cache-in-memory
  */
@@ -492,6 +492,41 @@ class GetRecord extends CrudRecord {
                 value: error,
             });
         }
+    }
+
+    async taskPermitted() {
+        return new Promise(async (resolve) => {
+            // determine permission by userId/owner, role-assignment(canUpdate) or admin
+            // collection level permission
+            const serviceColl = this.db.collection(this.serviceColl);
+            const collInfo    = await serviceColl.find({
+                name: {$or: [this.paramItems.coll.toLowerCase(), (this.paramItems.coll[0].toUpperCase() + this.paramItems.coll.slice(1).toLowerCase())]},
+                type: "Collection"
+            });
+
+            let rolePermitted = false;
+            if (this.docIds.length && collInfo) {
+                rolePermitted = await this.docIds.every(id => {
+                    // check roleServices permission (canDelete):
+                    return this.roleServices.some(role => {
+                        return ((role.service === id || role.service === (collInfo ? collInfo._id : '')) && role.canRead);
+                    })
+                });
+            }
+
+            // permit task, role or admin only
+            const taskPermitted = rolePermitted || this.isAdmin;
+
+            if (!taskPermitted) {
+                return getResMessage('unAuthorized', {
+                    message: 'You are not authorized to perform the requested action/task',                });
+            } else {
+                this.actionAuthorized = true;
+                resolve(getResMessage('success', {
+                    message: 'action authorised / permitted',
+                }));
+            }
+        });
     }
 }
 
