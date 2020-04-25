@@ -205,10 +205,16 @@ class DeleteRecord extends CrudRecord {
                     }));
                 } else {
                     this.isRecExist = false;
-                    resolve(getResMessage('success', {
-                        message: 'no integrity conflict',
-                    }));
                 }
+            }
+            if (!this.isRecExist) {
+                resolve(getResMessage('success', {
+                    message: 'no integrity conflict',
+                }));
+            } else {
+                resolve(getResMessage('error', {
+                    message: 'unable to verify integrity conflict',
+                }));
             }
         });
     }
@@ -347,9 +353,8 @@ class DeleteRecord extends CrudRecord {
             if (this.paramItems.childColl.length > 0 && this.docIds.length > 0) {
                 for (const pId of this.docIds) {
                     // prevent item delete, if child-collection-items reference itemId
-                    const db         = await dbConnect();
                     const childExist = this.paramItems.childColl.some(async (collName) => {
-                        const col      = await db.collection(collName);
+                        const col      = await this.db.collection(collName);
                         const collItem = await col.findOne({
                             parentId: {
                                 $in: this.docIds
