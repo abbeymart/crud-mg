@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-24
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-26
  * Updated 2018-04-08, prototype-to-class
  * @Company: mConnect.biz | @License: MIT
  * @Description: delete one or more records / documents
@@ -170,7 +170,7 @@ class DeleteRecord extends CrudRecord {
                     }
 
                     // delete/remove records
-                    const removeRec = await this.removeRecord();
+                    const removeRec = await this.removeRecordByParams();
                     resolve(removeRec);
                 });
 
@@ -193,7 +193,7 @@ class DeleteRecord extends CrudRecord {
             for (const existItem of this.paramItems.existParams) {
                 let recordExist = await this.coll.findOne(existItem);
                 if (recordExist) {
-                    this.isRecExist = true;
+                    this.isRecExist       = true;
                     // capture attributes for duplicateRec checking
                     let attributesMessage = '';
                     Object.entries(existItem)
@@ -223,9 +223,9 @@ class DeleteRecord extends CrudRecord {
         // current records, prior to update, for audit-log
         return new Promise(async (resolve) => {
             // current records, prior to update
-            const currentRecords = await col.find({
+            const currentRecords = await this.coll.find({
                 _id: {
-                    $in: docIds
+                    $in: this.docIds
                 }
             }).toArray();
 
@@ -246,7 +246,7 @@ class DeleteRecord extends CrudRecord {
         // current records, prior to update, for audit-log
         return new Promise(async (resolve) => {
             // current records, prior to update
-            const currentRecords = await col.find(this.paramItems.queryParams).toArray();
+            const currentRecords = await this.coll.find(this.paramItems.queryParams).toArray();
             if (currentRecords.length < 1) {
                 return getResMessage('notFound', {
                     message: 'Record(s) requested for updates, not found.',
@@ -351,32 +351,33 @@ class DeleteRecord extends CrudRecord {
         // required-inputs: parent/child-collections and current item-id/item-name
         return new Promise(async (resolve) => {
             if (this.paramItems.childColl.length > 0 && this.docIds.length > 0) {
-                for (const pId of this.docIds) {
-                    // prevent item delete, if child-collection-items reference itemId
-                    const childExist = this.paramItems.childColl.some(async (collName) => {
-                        const col      = await this.db.collection(collName);
-                        const collItem = await col.findOne({
-                            parentId: {
-                                $in: this.docIds
-                            }
-                        });
-                        if (collItem) {
-                            this.subItems.push(true);
+                // prevent item delete, if child-collection-items reference itemId
+                const childExist = this.paramItems.childColl.some(async (collName) => {
+                    const col      = await this.db.collection(collName);
+                    const collItem = await col.findOne({
+                        parentId: {
+                            $in: this.docIds
                         }
                     });
-                    if (childExist) {
-                        resolve(getResMessage('subItems', {
-                            message: `A record that contains sub-items cannot be deleted. Delete/remove the sub-items [from ${this.paramItems.childColl.join(', ')} collection(s)], first.`,
-                        }));
+                    if (collItem || Object.keys(collItem).length) {
+                        this.subItems.push(true);
+                        return true;
                     } else {
-                        resolve(getResMessage('success', {
-                            message: 'no data integrity issue',
-                        }));
+                        return false;
                     }
+                });
+                if (childExist || this.subItems.length) {
+                    resolve(getResMessage('subItems', {
+                        message: `A record that contains sub-items cannot be deleted. Delete/remove the sub-items [from ${this.paramItems.childColl.join(', ')} collection(s)], first.`,
+                    }));
+                } else {
+                    resolve(getResMessage('success', {
+                        message: 'no data integrity issue',
+                    }));
                 }
             } else {
                 resolve(getResMessage('success', {
-                    message: 'no data integrity issue',
+                    message: 'no data integrity checking or issue',
                 }));
             }
         });
@@ -396,11 +397,10 @@ class DeleteRecord extends CrudRecord {
     }
 
     async removeRecord() {
-        // delete/remove records and log in audit
+        // delete/remove records and log in audit-collection
         return new Promise(async (resolve) => {
             try {
-                // delete/remove record(s) and log in audit-collection
-                const removed = await col.deleteMany({
+                const removed = await this.coll.deleteMany({
                     _id: {
                         $in: this.docIds
                     }
@@ -429,41 +429,24 @@ class DeleteRecord extends CrudRecord {
     }
 
     async removeRecordByParams() {
-        // insert/create multiple records and log in audit
+        // delete/remove records and log in audit-collection
         return new Promise(async (resolve) => {
             try {
-                // delete/remove record(s) and log in audit-collection
-                let removeCount = 0;
-                this.coll.remove(this.paramItems.queryParams, {multi: true}, async (err, numRemoved) => {
-                    console.log('remove-task-1');
-                    if (err) {
-                        resolve(getResMessage('removeError', {value: err}));
+                const removed = await this.coll.deleteMany(this.paramItems.queryParams);
+                if (removed.result.ok) {
+                    // delete cache
+                    await cacheHash.deleteCache(this.paramItems.coll);
+                    // check the audit-log settings - to perform audit-log
+                    if (this.logDelete) {
+                        await this.transLog.deleteLog(this.paramItems.coll, this.currentRecords, this.userId);
                     }
-                    if (numRemoved > 0) {
-                        removeCount += numRemoved;
-                    }
-                    if (removeCount === this.paramItems.docId.length) {
-                        console.log('remove-task-2');
-                        if (removeCount > 0) {
-                            // clear cache
-                            await cacheHash.deleteCache(this.paramItems.coll);
-                            // check the audit-log settings - to perform audit-log
-                            if (this.logDelete) await this.transLog.deleteLog(this.paramItems.coll, this.currentRecs, this.userId);
-
-                            resolve(getResMessage('success', {
-                                message: 'Item(s)/record(s) deleted successfully',
-                                value  : {
-                                    docId: this.paramItems.docId,
-                                    removeCount,
-                                }
-                            }));
+                    resolve(getResMessage('success', {
+                        message: 'Item/record deleted successfully',
+                        value  : {
+                            docId: Number(removed.result.n),
                         }
-                    } else {
-                        resolve(getResMessage('removeError', {
-                            message: 'Error removing/deleting record(s)',
-                        }));
-                    }
-                });
+                    }));
+                }
             } catch (e) {
                 resolve(getResMessage('removeError', {
                     message: `Error removing/deleting record(s): ${e.message ? e.message : ""}`,

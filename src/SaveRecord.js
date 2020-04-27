@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-24
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-04-26
  * @Company: mConnect.biz | @License: MIT
  * @Description: create/update method => insert/update one or many records/documents
  */
@@ -359,7 +359,7 @@ class SaveRecord extends CrudRecord {
         // current records, prior to update, for audit-log
         return new Promise(async (resolve) => {
             // current records, prior to update
-            const currentRecords = await col.find(this.paramItems.queryParams).toArray();
+            const currentRecords = await this.coll.find(this.paramItems.queryParams).toArray();
             if (currentRecords.length < 1) {
                 return getResMessage('notFound', {
                     message: 'Record(s) requested for updates, not found.',
@@ -522,7 +522,7 @@ class SaveRecord extends CrudRecord {
                         // delete cache
                         await cacheHash.deleteCache(this.paramItems.coll);
                         // check the audit-log settings - to perform audit-log
-                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, currentRecords, updateItems, userId);
+                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, this.currentRecords, this.updateItems, this.userId);
                         resolve(getResMessage('success', {
                             message: 'Record(s) updated successfully.',
                             value  : {
