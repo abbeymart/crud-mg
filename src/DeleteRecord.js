@@ -263,6 +263,9 @@ class DeleteRecord extends CrudRecord {
     async taskPermitted() {
         return new Promise(async (resolve) => {
             // determine permission by userId/owner, role-assignment(canUpdate) or admin
+            let docRolePermitted  = false,
+                collRolePermitted = false;
+
             // collection level permission
             const serviceColl = this.db.collection(this.serviceColl);
             const collInfo    = await serviceColl.find({
@@ -270,20 +273,26 @@ class DeleteRecord extends CrudRecord {
                 type: "Collection"
             });
 
-            let rolePermitted = false;
+            if (collInfo) {
+                collRolePermitted = this.roleServices.some(role => {
+                    return ((role.service === (collInfo ? collInfo._id : '')) && role.canDelete);
+                });
+            }
+
+            // document level permission
             if (this.docIds.length) {
-                rolePermitted = await this.docIds.every(id => {
-                    // check roleServices permission (canDelete):
+                docRolePermitted = await this.docIds.every(id => {
+                    // check roleServices permission (canRead):
                     return this.roleServices.some(role => {
-                        return ((role.service === id || role.service === (collInfo ? collInfo._id : '')) && role.canDelete);
+                        return (role.service === id && role.canDelete);
                     })
                 });
             }
 
-            // permit task, by owner, role or admin only
+            // permit task, by owner, role or admin
             const taskPermitted = await this.currentRecords.every(item => {
                 return (item.createdBy.toString() === this.userId.toString());
-            }) || rolePermitted || this.isAdmin;
+            }) || collRolePermitted || docRolePermitted ||  this.isAdmin;
 
             if (!taskPermitted) {
                 return getResMessage('unAuthorized', {

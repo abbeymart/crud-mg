@@ -63,9 +63,9 @@ class GetRecord extends CrudRecord {
         });
 
         if (userStatus.code === 'success') {
-            userActive   = userStatus.value.userActive;
-            userId       = userStatus.value.userId;
-            isAdmin      = userStatus.value.isAdmin;
+            userActive = userStatus.value.userActive;
+            userId     = userStatus.value.userId;
+            isAdmin    = userStatus.value.isAdmin;
             // userRole     = userStatus.value.userRole;
             // userRoles    = userStatus.value.userRoles;
             roleServices = userStatus.value.roleServices;
@@ -498,6 +498,9 @@ class GetRecord extends CrudRecord {
     async taskPermitted() {
         return new Promise(async (resolve) => {
             // determine permission by userId/owner, role-assignment(canUpdate) or admin
+            let docRolePermitted  = false,
+                collRolePermitted = false;
+
             // collection level permission
             const serviceColl = this.db.collection(this.serviceColl);
             const collInfo    = await serviceColl.find({
@@ -505,22 +508,29 @@ class GetRecord extends CrudRecord {
                 type: "Collection"
             });
 
-            let rolePermitted = false;
-            if (this.docIds.length && collInfo) {
-                rolePermitted = await this.docIds.every(id => {
-                    // check roleServices permission (canDelete):
+            if (collInfo) {
+                collRolePermitted = this.roleServices.some(role => {
+                    return ((role.service === (collInfo ? collInfo._id : '')) && role.canRead);
+                });
+            }
+
+            // document level permission
+            if (this.docIds.length) {
+                docRolePermitted = await this.docIds.every(id => {
+                    // check roleServices permission (canRead):
                     return this.roleServices.some(role => {
-                        return ((role.service === id || role.service === (collInfo ? collInfo._id : '')) && role.canRead);
+                        return (role.service === id && role.canRead);
                     })
                 });
             }
 
-            // permit task, role or admin only
-            const taskPermitted = rolePermitted || this.isAdmin;
+            // permit task, by role or admin
+            const taskPermitted = collRolePermitted || docRolePermitted || this.isAdmin;
 
             if (!taskPermitted) {
                 return getResMessage('unAuthorized', {
-                    message: 'You are not authorized to perform the requested action/task',                });
+                    message: 'You are not authorized to perform the requested action/task',
+                });
             } else {
                 this.actionAuthorized = true;
                 resolve(getResMessage('success', {
