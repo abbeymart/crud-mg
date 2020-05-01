@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-24
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-30
  * @Company: mConnect.biz | @License: MIT
  * @Description: get records, by params, by role / by userId | cache-in-memory
  */
@@ -50,7 +50,7 @@ class GetRecord extends CrudRecord {
         let userActive   = false,
             userId       = '',
             isAdmin      = false,
-            userRole     = '',
+            // userRole     = '',
             roleServices = [];
 
         // role-assignment / access rights
@@ -66,8 +66,8 @@ class GetRecord extends CrudRecord {
             userActive   = userStatus.value.userActive;
             userId       = userStatus.value.userId;
             isAdmin      = userStatus.value.isAdmin;
-            userRole     = userStatus.value.userRole;
-//            userRoles    = userStatus.value.userRoles;
+            // userRole     = userStatus.value.userRole;
+            // userRoles    = userStatus.value.userRoles;
             roleServices = userStatus.value.roleServices;
         }
         // user-active-status
@@ -227,9 +227,10 @@ class GetRecord extends CrudRecord {
                 });
             }
         }
-        // get items by userRole/assigned/granted items
-        if (userActive && userRole && roleServices.length > 0 && this.paramItems.coll === this.serviceColl) {
-            // TODO: apply to all collections/functions, post roles/users collections' update
+        // get items by userRole
+        await this.taskPermitted();
+        if (userActive && this.actionAuthorized) {
+            // this.actionAuthorized: apply to all collections/functions
             // Get the item(s) by docId(s) or queryParams
             if (this.paramItems.docId && this.paramItems.docId.length === 1) {
                 try {
@@ -372,7 +373,7 @@ class GetRecord extends CrudRecord {
                 });
             }
         }
-        // get items(s) by userId, by docId(s)/queryParams
+        // get items(s) by userId
         if (this.paramItems.docId && this.paramItems.docId.length === 1) {
             try {
                 // use / activate database
