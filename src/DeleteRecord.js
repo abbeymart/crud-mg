@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-26
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-03
  * Updated 2018-04-08, prototype-to-class
  * @Company: mConnect.biz | @License: MIT
  * @Description: delete one or more records / documents

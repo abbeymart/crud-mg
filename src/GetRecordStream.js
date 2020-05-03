@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2017-01-09 | @Updated: 2020-04-05
+ * @Author: abbeymart | Abi Akindele | @Created: 2017-01-09 | @Updated: 2020-05-03
  * @Company: mConnect.biz | @License: MIT
  * @Description: Get/stream records, by params, by role / by userId
  */
@@ -11,10 +11,20 @@ const {ValidateCrud}     = require('@mconnect/validate-crud');
 const {getParamsMessage} = require('@mconnect/utils')();
 const checkAccess        = require('./common/checkAccess');
 const {checkDb}          = require('./common/crudHelpers');
+const CrudRecord         = require('./CrudRecord');
 
-class GetRecordStream extends GetAllRecord {
+class GetRecordStream extends CrudRecord {
     constructor(appDb, params, options = {}) {
         super(appDb, params, options);
+
+        this.db                  = null;
+        this.coll                = null;
+        this.userId              = '';
+        this.isAdmin             = false;
+        this.docIds              = [];
+        this.roleServices        = [];
+        this.actionAuthorized    = false;
+        this.unAuthorizedMessage = 'You are not authorized to perform the requested action/task';
     }
 
     async getRecordStream() {
@@ -48,7 +58,7 @@ class GetRecordStream extends GetAllRecord {
         let userActive   = false,
             userId       = '',
             isAdmin      = false,
-            userRole     = '',
+            // userRole     = '',
             roleServices = [];
 
         // role-assignment / access rights
@@ -65,8 +75,13 @@ class GetRecordStream extends GetAllRecord {
             userActive   = userStatus.value.userActive;
             userId       = userStatus.value.userId;
             isAdmin      = userStatus.value.isAdmin;
-            userRole     = userStatus.value.userRole;
+            // userRole     = userStatus.value.userRole;
             roleServices = userStatus.value.roleServices;
+
+            // set user-id instance value
+            this.userId       = userId;
+            this.isAdmin      = isAdmin;
+            this.roleServices = roleServices;
         }
 
         // user-active-status
@@ -80,8 +95,6 @@ class GetRecordStream extends GetAllRecord {
         }
 
         // get items for three scenarios => admin (all-records) | by-roles | by-userId
-        // define db-client-handle and result variables
-        let db, col;
 
         // id(s): convert string-id to ObjectId
         this.paramItems.docId = this.paramItems.docId ? this.paramItems.docId.map(id => ObjectId(id)) : [];
@@ -97,10 +110,10 @@ class GetRecordStream extends GetAllRecord {
             if (this.paramItems.docId && this.paramItems.docId.length === 1) {
                 try {
                     // use / activate database || not necessary for streaming (included for completeness only)
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
-                    return await col.findOne({_id: this.paramItems.docId[0]}, this.paramItems.projectParams)
+                    return await this.coll.findOne({_id: this.paramItems.docId[0]}, this.paramItems.projectParams)
                         .stream({
                             transform: function (doc) {
                                 return [doc];
@@ -113,10 +126,10 @@ class GetRecordStream extends GetAllRecord {
             if (this.paramItems.docId && this.paramItems.docId.length > 1) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
-                    return await col.find({_id: {$in: this.paramItems.docId}})
+                    return await this.coll.find({_id: {$in: this.paramItems.docId}})
                         .skip(this.paramItems.skip)
                         .limit(this.paramItems.limit)
                         .project(this.paramItems.projectParams)
@@ -129,10 +142,10 @@ class GetRecordStream extends GetAllRecord {
             if (Object.keys(this.paramItems.queryParams).length > 0) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
-                    return await col.find(this.paramItems.queryParams)
+                    return await this.coll.find(this.paramItems.queryParams)
                         .skip(this.paramItems.skip)
                         .limit(this.paramItems.limit)
                         .project(this.paramItems.projectParams)
@@ -145,10 +158,10 @@ class GetRecordStream extends GetAllRecord {
             // get all records, up to the permissible limit
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
-                return await col.find({})
+                return await this.coll.find({})
                     .skip(this.paramItems.skip)
                     .limit(this.paramItems.limit)
                     .project(this.paramItems.projectParams)
@@ -159,22 +172,22 @@ class GetRecordStream extends GetAllRecord {
             }
         }
 
-        // get items by userRole/assigned/granted items
-        if (userActive && userRole && roleServices.length > 0 && this.paramItems.coll === this.serviceColl) {
-            // TODO: apply to all collections/functions, post grant/roles/users collections' update
+        // get items by userRole
+        await this.taskPermitted();
+        if (userActive && this.actionAuthorized) {
             // Get the item(s) by docId(s) or queryParams
             if (this.paramItems.docId && this.paramItems.docId.length === 1) {
                 try {
                     // use / activate database || not necessary for streaming (included for completeness only)
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
                     // extract service-IDs from roleServices
                     roleServices = roleServices.map(item => item.service);
                     // check if the docId is in the list of role-services
                     const hasId  = roleServices.includes(this.paramItems.docId[0]);
                     if (hasId) {
-                        return await col.findOne({_id: this.paramItems.docId[0]}, this.paramItems.projectParams)
+                        return await this.coll.findOne({_id: this.paramItems.docId[0]}, this.paramItems.projectParams)
                             .stream({
                                 transform: function (doc) {
                                     return [doc];
@@ -188,8 +201,8 @@ class GetRecordStream extends GetAllRecord {
             if (this.paramItems.docId && this.paramItems.docId.length > 1) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
                     // extract service-IDs from roleServices
                     roleServices = roleServices.map(item => item.service);
@@ -198,7 +211,7 @@ class GetRecordStream extends GetAllRecord {
                     this.paramItems.docId = this.paramItems.docId.map(item => roleServices.includes(item));
 
                     // perform query
-                    return await col.find({_id: {$in: this.paramItems.docId}})
+                    return await this.coll.find({_id: {$in: this.paramItems.docId}})
                         .skip(this.paramItems.skip)
                         .limit(this.paramItems.limit)
                         .project(this.paramItems.projectParams)
@@ -211,8 +224,8 @@ class GetRecordStream extends GetAllRecord {
             if (Object.keys(this.paramItems.queryParams).length > 0) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
                     // consider role-based-items
                     // extract service-IDs from roleServices
@@ -223,7 +236,7 @@ class GetRecordStream extends GetAllRecord {
                     // this.paramItems.queryParams['_id'] = {$in: roleServices};
 
                     // perform query
-                    return await col.find(this.paramItems.queryParams)
+                    return await this.coll.find(this.paramItems.queryParams)
                         .skip(this.paramItems.skip)
                         .limit(this.paramItems.limit)
                         .project(this.paramItems.projectParams)
@@ -236,14 +249,14 @@ class GetRecordStream extends GetAllRecord {
             // get all records, permissible by roleServices
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
                 // consider role-based-items
                 // extract service-IDs from roleServices
                 roleServices = roleServices.map(item => item.service);
                 // perform query
-                return await col.find({_id: {$in: roleServices}})
+                return await this.coll.find({_id: {$in: roleServices}})
                     .skip(this.paramItems.skip)
                     .limit(this.paramItems.limit)
                     .project(this.paramItems.projectParams)
@@ -258,10 +271,10 @@ class GetRecordStream extends GetAllRecord {
         if (this.paramItems.docId && this.paramItems.docId.length === 1) {
             try {
                 // use / activate database || not necessary for streaming (included for completeness only)
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
-                return await col.findOne({
+                return await this.coll.findOne({
                     _id      : this.paramItems.docId[0],
                     createdBy: userId
                 }, this.paramItems.projectParams)
@@ -277,10 +290,10 @@ class GetRecordStream extends GetAllRecord {
         if (this.paramItems.docId && this.paramItems.docId.length > 1) {
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
-                return await col.find({_id: {$in: this.paramItems.docId}, createdBy: userId})
+                return await this.coll.find({_id: {$in: this.paramItems.docId}, createdBy: userId})
                     .skip(this.paramItems.skip)
                     .limit(this.paramItems.limit)
                     .project(this.paramItems.projectParams)
@@ -293,13 +306,13 @@ class GetRecordStream extends GetAllRecord {
         if (Object.keys(this.paramItems.queryParams).length > 0) {
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
                 // consider user-owned-items
                 this.paramItems.queryParams['createdBy'] = userId;
 
-                return await col.find(this.paramItems.queryParams)
+                return await this.coll.find(this.paramItems.queryParams)
                     .skip(this.paramItems.skip)
                     .limit(this.paramItems.limit)
                     .project(this.paramItems.projectParams)
@@ -312,10 +325,10 @@ class GetRecordStream extends GetAllRecord {
         // get all records, by userId
         try {
             // use / activate database
-            db  = await this.dbConnect();
-            col = db.collection(this.paramItems.coll);
+            this.db   = await this.dbConnect();
+            this.coll = this.db.collection(this.paramItems.coll);
 
-            return await col.find({createdBy: userId})
+            return await this.coll.find({createdBy: userId})
                 .skip(this.paramItems.skip)
                 .limit(this.paramItems.limit)
                 .project(this.paramItems.projectParams)
@@ -324,6 +337,51 @@ class GetRecordStream extends GetAllRecord {
         } catch (error) {
             throw new Error(`notFound: ${error.message}`);
         }
+    }
+
+    async taskPermitted() {
+        return new Promise(async (resolve) => {
+            // determine permission by userId/owner, role-assignment(canUpdate) or admin
+            let docRolePermitted  = false,
+                collRolePermitted = false;
+
+            // collection level permission
+            const serviceColl = this.db.collection(this.serviceColl);
+            const collInfo    = await serviceColl.find({
+                name: {$or: [this.paramItems.coll.toLowerCase(), (this.paramItems.coll[0].toUpperCase() + this.paramItems.coll.slice(1).toLowerCase())]},
+                type: "Collection"
+            });
+
+            if (collInfo) {
+                collRolePermitted = this.roleServices.some(role => {
+                    return ((role.service === (collInfo ? collInfo._id : '')) && role.canRead);
+                });
+            }
+
+            // document level permission
+            if (this.docIds.length) {
+                docRolePermitted = await this.docIds.every(id => {
+                    // check roleServices permission (canRead):
+                    return this.roleServices.some(role => {
+                        return (role.service === id && role.canRead);
+                    })
+                });
+            }
+
+            // permit task, by role or admin
+            const taskPermitted = collRolePermitted || docRolePermitted || this.isAdmin;
+
+            if (!taskPermitted) {
+                return getResMessage('unAuthorized', {
+                    message: this.unAuthorizedMessage,
+                });
+            } else {
+                this.actionAuthorized = true;
+                resolve(getResMessage('success', {
+                    message: 'action authorised / permitted',
+                }));
+            }
+        });
     }
 }
 

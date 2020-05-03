@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-04-30
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-03
  * @Company: mConnect.biz | @License: MIT
  * @Description: get records, by params, by role / by userId | cache-in-memory
  */
@@ -17,6 +17,15 @@ const CrudRecord         = require('./CrudRecord');
 class GetRecord extends CrudRecord {
     constructor(appDb, params, options = {}) {
         super(appDb, params, options);
+
+        this.db                  = null;
+        this.coll                = null;
+        this.userId              = '';
+        this.isAdmin             = false;
+        this.docIds              = [];
+        this.roleServices        = [];
+        this.actionAuthorized    = false;
+        this.unAuthorizedMessage = 'You are not authorized to perform the requested action/task';
     }
 
     async getRecord() {
@@ -63,12 +72,15 @@ class GetRecord extends CrudRecord {
         });
 
         if (userStatus.code === 'success') {
-            userActive = userStatus.value.userActive;
-            userId     = userStatus.value.userId;
-            isAdmin    = userStatus.value.isAdmin;
-            // userRole     = userStatus.value.userRole;
-            // userRoles    = userStatus.value.userRoles;
+            userActive   = userStatus.value.userActive;
+            userId       = userStatus.value.userId;
+            isAdmin      = userStatus.value.isAdmin;
             roleServices = userStatus.value.roleServices;
+
+            // set user-id instance value
+            this.userId       = userId;
+            this.isAdmin      = isAdmin;
+            this.roleServices = roleServices;
         }
         // user-active-status
         if (!(userActive && userId)) {
@@ -107,17 +119,17 @@ class GetRecord extends CrudRecord {
         }
 
         // define db-client-handle and collection variables
-        let db, col;
+        // let db, col;
         // get items/records by adminRole | isAdmin determined from the server-side
         if (userActive && userId && isAdmin) {
             // Get the item(s) by docId(s) or queryParams
             if (this.paramItems.docId && this.paramItems.docId.length === 1) {
                 try {
                     // use / activate database/collection
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
-                    const result = await col.findOne({_id: this.paramItems.docId[0]}, this.paramItems.projectParams);
+                    const result = await this.coll.findOne({_id: this.paramItems.docId[0]}, this.paramItems.projectParams);
 
                     if (Object.keys(result).length > 0) {
                         // save copy in the cache | put single result {} in an array for getCache result consistency/check
@@ -139,10 +151,10 @@ class GetRecord extends CrudRecord {
             if (this.paramItems.docId && this.paramItems.docId.length > 1) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
-                    const result = await col.find({_id: {$in: this.paramItems.docId}})
+                    const result = await this.coll.find({_id: {$in: this.paramItems.docId}})
                         .skip(this.paramItems.skip)
                         .limit(this.paramItems.limit)
                         .project(this.paramItems.projectParams)
@@ -169,10 +181,10 @@ class GetRecord extends CrudRecord {
             if (Object.keys(this.paramItems.queryParams).length > 0) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
-                    const result = await col.find(this.paramItems.queryParams)
+                    const result = await this.coll.find(this.paramItems.queryParams)
                         .skip(this.paramItems.skip)
                         .limit(this.paramItems.limit)
                         .project(this.paramItems.projectParams)
@@ -199,10 +211,10 @@ class GetRecord extends CrudRecord {
             // get all records, up to the permissible limit
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
-                const result = await col.find()
+                const result = await this.coll.find()
                     .skip(this.paramItems.skip)
                     .limit(this.paramItems.limit)
                     .project(this.paramItems.projectParams)
@@ -235,8 +247,8 @@ class GetRecord extends CrudRecord {
             if (this.paramItems.docId && this.paramItems.docId.length === 1) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
                     // extract service-IDs from roleServices
                     roleServices = roleServices.map(item => item.service);
@@ -244,7 +256,7 @@ class GetRecord extends CrudRecord {
                     const hasId  = roleServices.includes(this.paramItems.docId[0]);
                     let result   = '';
                     if (hasId) {
-                        result = await col.findOne({_id: this.paramItems.docId[0]}, this.paramItems.projectParams);
+                        result = await this.coll.findOne({_id: this.paramItems.docId[0]}, this.paramItems.projectParams);
                     }
                     if (Object.keys(result).length > 0) {
                         // save copy in the cache | put single result {} in an array for getCache result consistency/check
@@ -266,8 +278,8 @@ class GetRecord extends CrudRecord {
             if (this.paramItems.docId && this.paramItems.docId.length > 1) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
                     // extract service-IDs from roleServices
                     roleServices          = roleServices.map(item => item.service);
@@ -275,7 +287,7 @@ class GetRecord extends CrudRecord {
                     this.paramItems.docId = this.paramItems.docId.map(item => roleServices.includes(item));
 
                     // perform query
-                    const result = await col.find({_id: {$in: this.paramItems.docId}})
+                    const result = await this.coll.find({_id: {$in: this.paramItems.docId}})
                         .skip(this.paramItems.skip)
                         .limit(this.paramItems.limit)
                         .project(this.paramItems.projectParams)
@@ -302,8 +314,8 @@ class GetRecord extends CrudRecord {
             if (Object.keys(this.paramItems.queryParams).length > 0) {
                 try {
                     // use / activate database
-                    db  = await this.dbConnect();
-                    col = db.collection(this.paramItems.coll);
+                    this.db   = await this.dbConnect();
+                    this.coll = this.db.collection(this.paramItems.coll);
 
                     // consider role-based-items
                     // extract service-IDs from roleServices
@@ -314,7 +326,7 @@ class GetRecord extends CrudRecord {
                     // this.paramItems.queryParams['_id'] = {$in: roleServices};
 
                     // perform query
-                    const result = await col.find(this.paramItems.queryParams)
+                    const result = await this.coll.find(this.paramItems.queryParams)
                         .skip(this.paramItems.skip)
                         .limit(this.paramItems.limit)
                         .project(this.paramItems.projectParams)
@@ -341,15 +353,15 @@ class GetRecord extends CrudRecord {
             // get all records, permissible by roleServices
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
                 // consider role-based-items
                 // extract service-IDs from roleServices
                 roleServices = roleServices.map(item => item.service);
 
                 // perform query
-                const result = await col.find({_id: {$in: roleServices}})
+                const result = await this.coll.find({_id: {$in: roleServices}})
                     .skip(this.paramItems.skip)
                     .limit(this.paramItems.limit)
                     .project(this.paramItems.projectParams)
@@ -377,10 +389,10 @@ class GetRecord extends CrudRecord {
         if (this.paramItems.docId && this.paramItems.docId.length === 1) {
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
-                const result = await col.findOne({
+                const result = await this.coll.findOne({
                     _id      : this.paramItems.docId[0],
                     createdBy: userId,
                 }, this.paramItems.projectParams);
@@ -406,10 +418,10 @@ class GetRecord extends CrudRecord {
         if (this.paramItems.docId && this.paramItems.docId.length > 1) {
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
-                const result = await col.find({
+                const result = await this.coll.find({
                     _id      : {$in: this.paramItems.docId},
                     createdBy: userId,
                 }).skip(this.paramItems.skip).limit(this.paramItems.limit)
@@ -437,13 +449,13 @@ class GetRecord extends CrudRecord {
         if (Object.keys(this.paramItems.queryParams).length > 0) {
             try {
                 // use / activate database
-                db  = await this.dbConnect();
-                col = db.collection(this.paramItems.coll);
+                this.db   = await this.dbConnect();
+                this.coll = this.db.collection(this.paramItems.coll);
 
                 // include user/owned-items
                 this.paramItems.queryParams.createdBy = userId;
 
-                const result = await col.find(this.paramItems.queryParams)
+                const result = await this.coll.find(this.paramItems.queryParams)
                     .skip(this.paramItems.skip)
                     .limit(this.paramItems.limit)
                     .project(this.paramItems.projectParams)
@@ -470,10 +482,10 @@ class GetRecord extends CrudRecord {
         // get all records, by userId
         try {
             // use / activate database
-            db  = await this.dbConnect();
-            col = db.collection(this.paramItems.coll);
+            this.db   = await this.dbConnect();
+            this.coll = this.db.collection(this.paramItems.coll);
 
-            const result = await col.find({createdBy: userId})
+            const result = await this.coll.find({createdBy: userId})
                 .skip(this.paramItems.skip)
                 .limit(this.paramItems.limit)
                 .project(this.paramItems.projectParams)
@@ -529,7 +541,7 @@ class GetRecord extends CrudRecord {
 
             if (!taskPermitted) {
                 return getResMessage('unAuthorized', {
-                    message: 'You are not authorized to perform the requested action/task',
+                    message: this.unAuthorizedMessage,
                 });
             } else {
                 this.actionAuthorized = true;
