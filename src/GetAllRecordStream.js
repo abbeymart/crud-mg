@@ -8,8 +8,9 @@
 const {ValidateCrud}     = require('@mconnect/validate-crud');
 const {getParamsMessage} = require('@mconnect/utils')();
 const {checkDb}          = require('./common/crudHelpers');
+const CrudRecord         = require('./CrudRecord');
 
-class GetAllRecordStream extends GetAllRecord {
+class GetAllRecordStream extends CrudRecord {
     constructor(appDb, params, options = {}) {
         super(appDb, params, options);
     }
