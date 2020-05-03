@@ -1,7 +1,7 @@
 {
   "name": "@mconnect/crud-mg",
   "version": "0.1.0",
-  "description": "mConnect MongoDB CRUD operations, crud-mongo re-writes",
+  "description": "mConnect MongoDB CRUD operations, crud-mongo re-write",
   "main": "index.js",
   "directories": {
     "test": "test"
@@ -38,7 +38,6 @@
     "@mconnect/auditlog": "^0.1.0",
     "@mconnect/cache": "^0.2.0",
     "@mconnect/res-messages": "^0.2.1",
-    "@mconnect/translog": "^0.4.1",
     "@mconnect/utils": "^0.2.2",
     "@mconnect/validate-crud": "^0.3.0",
     "mongodb": "^3.5.5"
