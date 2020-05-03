@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2017-01-09 | @Updated: 2020-04-09
+ * @Author: abbeymart | Abi Akindele | @Created: 2017-01-09 | @Updated: 2020-05-03
  * @Company: mConnect.biz | @License: MIT
  * @Description: get all active records, by params, by role / by userId | cache-in-memory, lookup-items <= 1000 records
  */
@@ -84,10 +84,10 @@ class GetAllRecord extends CrudRecord {
                         value: result
                     }, this.cacheExpire);
                     // await cacheHash.getCache(this.paramItems.coll, this.paramItems);
-                    const items = await cacheHash.getCache(this.paramItems.coll, this.paramItems);
-                    if (items && items.length > 0) {
-                        console.log('cache items-after-query: ', items[0]);
-                    }
+                    // const items = await cacheHash.getCache(this.paramItems.coll, this.paramItems);
+                    // if (items && items.value && items.value.length > 0) {
+                    //     console.log('cache items-after-query: ', items.value[0]);
+                    // }
                     return getResMessage('success', {
                         value: result,
                     });
@@ -116,10 +116,10 @@ class GetAllRecord extends CrudRecord {
             if (result.length > 0) {
                 // save copy in the cache
                 await cacheHash.setCache(this.paramItems.coll, {key: this.paramItems, value: result}, this.cacheExpire);
-                const items = await cacheHash.getCache(this.paramItems.coll, this.paramItems);
-                if (items && items.length > 0) {
-                    console.log('cache items-after-query: ', items[0]);
-                }
+                // const items = await cacheHash.getCache(this.paramItems.coll, this.paramItems);
+                // if (items && items.value && items.value.length > 0) {
+                //     console.log('cache items-after-query: ', items.value[0]);
+                // }
                 return getResMessage('success', {
                     value: result,
                 });
