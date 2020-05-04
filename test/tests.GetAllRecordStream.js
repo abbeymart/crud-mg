@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2019-06-10 | @Updated: 2019-06-15
+ * @Author: abbeymart | Abi Akindele | @Created: 2019-06-10 | @Updated: 2020-05-03
  * @Company: mConnect.biz | @License: MIT
  * @Description: @mconnect/crud testing, GetAllRecordStream - similar to GetAllRecord, but streamed
  */
@@ -10,8 +10,8 @@
 const {suite, test, before} = require('mocha');
 const ok                    = require('./assert');
 
-const {dbConnect}        = require('./mgConnect');
-const GetAllRecordStream = require('../src/GetAllRecordStream');
+const {dbConnect}                                 = require('./mgConnect');
+const {GetAllRecordStream, newGetAllRecordStream} = require('../src/GetAllRecordStream');
 
 let params,
     options = {};
@@ -33,14 +33,14 @@ suite('@mconnect/crud package Testing - GetAllRecordStream:', () => {
             ok(typeof res === 'object', `response should be an object: ${res}`);
         });
         test('should return valid instance record, with function-call', () => {
-            const res = GetAllRecordStream(dbConnect, params, options);
+            const res = newGetAllRecordStream(dbConnect, params, options);
             // console.log('result-call instance: ', res);
             ok(typeof res === 'object', `response should be an object: ${res}`);
         });
         test('should stream/return valid # of all records', async () => {
-            const resInstance = GetAllRecordStream(dbConnect, params);
+            const resInstance = newGetAllRecordStream(dbConnect, params);
             const res         = await resInstance.getAllRecordStream();
-            let resItems = [];
+            let resItems      = [];
             res.on('data', async (dataRec) => {
                 // console.log('res-data: ', dataRec );
                 await resItems.push(dataRec);
@@ -58,7 +58,7 @@ suite('@mconnect/crud package Testing - GetAllRecordStream:', () => {
                         '5b57f583b3db46019a22bd9f',
                 ],
             };
-            const resInstance = GetAllRecordStream(dbConnect, params);
+            const resInstance = newGetAllRecordStream(dbConnect, params);
             const res         = await resInstance.getAllRecordStream();
             let resItems      = [];
             res.on('data', async (dataRec) => {
@@ -75,7 +75,7 @@ suite('@mconnect/crud package Testing - GetAllRecordStream:', () => {
                     code: 'US',
                 }
             };
-            const resInstance = GetAllRecordStream(dbConnect, params);
+            const resInstance = newGetAllRecordStream(dbConnect, params);
             const res         = await resInstance.getAllRecordStream();
             let resItems      = [];
             res.on('data', async (dataRec) => {
@@ -88,8 +88,8 @@ suite('@mconnect/crud package Testing - GetAllRecordStream:', () => {
 
     suite('Negative testing:', () => {
         test('should return paramsError, with null appDb', async () => {
-            const resInstance = GetAllRecordStream('', params, options);
-            const res         = await resInstance.getAllRecordStream();
+            const resInstance = newGetAllRecordStream('', params, options);
+            const res         = await resInstance.getAllRecordStream() || {};
             ok(res['code'] === 'paramsError', `response should be a function: ${res['code']}`);
         });
     });
