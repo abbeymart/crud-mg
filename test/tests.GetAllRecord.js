@@ -7,7 +7,7 @@
 const {suite, test, before} = require('mocha');
 const ok                    = require('./assert');
 
-const {dbConnect}    = require('./mgConnect');
+const {dbConnect}                     = require('./mgConnect');
 const {newGetAllRecord, GetAllRecord} = require('../src/GetAllRecord');
 
 let params,
