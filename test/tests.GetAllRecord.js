@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2019-06-06 | @Updated: 2019-05-03
+ * @Author: abbeymart | Abi Akindele | @Created: 2019-06-06 | @Updated: 2020-05-03
  * @Company: mConnect.biz | @License: MIT
  * @Description: @mconnect/crud testing, GetAllRecord
  */
