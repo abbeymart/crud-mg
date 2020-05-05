@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2019-06-10 | @Updated: 2019-08-12
+ * @Author: abbeymart | Abi Akindele | @Created: 2019-06-10 | @Updated: 2020-05-05
  * @Company: mConnect.biz | @License: MIT
  * @Description: @mconnect/crud testing, SaveRecord
  */
@@ -11,9 +11,9 @@ const ObjectId              = require('mongodb').ObjectID;
 const {suite, test, before} = require('mocha');
 const ok                    = require('./assert');
 
-const {dbConnect}             = require('./mgConnect');
-const SaveRecord              = require('../src/SaveRecord');
-const {tokenId, testUserInfo} = require('./token');
+const {dbConnect}                 = require('./mgConnect');
+const {SaveRecord, newSaveRecord} = require('../src/SaveRecord');
+const {tokenId, testUserInfo}     = require('./token');
 
 let params,
     actionParams              = [
@@ -60,7 +60,7 @@ let params,
             parentId   : '5b7a0e03b967e171cd0ae99c',
             code       : 'UK',
             currency   : 'GBP',
-            desc       : 'The United Kingdom Update3a',
+            desc       : 'The United Kingdom NewUpdate',
             lang       : 'en-GB',
             name       : 'United Kingdom Updated',
             phoneCode  : 44,
@@ -124,7 +124,7 @@ suite('@mconnect/crud package Testing - SaveRecord:', () => {
             ok(typeof res === 'object', `response should be an object: ${res}`);
         });
         test('should return valid instance record, function-call', () => {
-            const res = new SaveRecord(dbConnect, params, options);
+            const res = newSaveRecord(dbConnect, params, options);
             ok(typeof res === 'object', `response should be an object: ${res}`);
         });
         test('should successfully create new record', async () => {
@@ -136,7 +136,7 @@ suite('@mconnect/crud package Testing - SaveRecord:', () => {
                 token,
                 userInfo,
             };
-            const resInstance = SaveRecord(dbConnect, params);
+            const resInstance = newSaveRecord(dbConnect, params);
             const res         = await resInstance.saveRecord();
             ok(res.code === 'success' || res.code === 'exists', `response-code should be: success or exists`);
         });
@@ -149,14 +149,14 @@ suite('@mconnect/crud package Testing - SaveRecord:', () => {
                 token,
                 userInfo,
             };
-            const resInstance = SaveRecord(dbConnect, params);
+            const resInstance = newSaveRecord(dbConnect, params);
             const res         = await resInstance.saveRecord();
             ok(res.code === 'success', `response-code should be: success`);
         });
     });
     suite('Negative testing:', () => {
         test('should return paramsError, with null appDb', async () => {
-            const resInstance = SaveRecord('', params, options);
+            const resInstance = newSaveRecord('', params, options);
             const res         = await resInstance.saveRecord();
             ok(res['code'] === 'paramsError', `response should be a function: ${res['code']}`);
         });
@@ -169,7 +169,7 @@ suite('@mconnect/crud package Testing - SaveRecord:', () => {
                 token,
                 userInfo,
             };
-            const resInstance = SaveRecord(dbConnect, params);
+            const resInstance = newSaveRecord(dbConnect, params);
             const res         = await resInstance.saveRecord();
             console.log('create-id-error: ', res);
             ok(res.code === 'exists', `response-code should be: exists`);

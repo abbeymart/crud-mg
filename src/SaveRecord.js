@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-05-03
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-17 | @Updated: 2020-05-05
  * @Company: mConnect.biz | @License: MIT
  * @Description: create/update method => insert/update one or many records/documents
  */
@@ -441,7 +441,7 @@ class SaveRecord extends CrudRecord {
             }
 
             // permit task, by owner, role or admin only
-            const taskPermitted = await this.currentRecords.every(item => {
+            const taskPermitted = await this.currentRecs.every(item => {
                 return (item.createdBy.toString() === this.userId.toString());
             }) || collRolePermitted || docRolePermitted || userAllowedUpdate || this.isAdmin;
 
@@ -464,7 +464,7 @@ class SaveRecord extends CrudRecord {
             // determine permission by userId/owner, role-assignment(canUpdate) or admin
             // ids of records to be deleted, from queryParams
             this.docIds = [];           // reset docIds instance value
-            this.currentRecords.forEach(item => {
+            this.currentRecs.forEach(item => {
                 this.docIds.push(item._id);
             });
             resolve(await this.taskPermitted());
@@ -531,7 +531,7 @@ class SaveRecord extends CrudRecord {
                         // delete cache
                         await cacheHash.deleteCache(this.paramItems.coll);
                         // check the audit-log settings - to perform audit-log
-                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, this.currentRecords, this.updateItems, this.userId);
+                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, this.currentRecs, this.updateItems, this.userId);
                         resolve(getResMessage('success', {
                             message: 'Record(s) updated successfully.',
                             value  : {
@@ -584,7 +584,7 @@ class SaveRecord extends CrudRecord {
                         // delete cache
                         await cacheHash.deleteCache(this.paramItems.coll);
                         // check the audit-log settings - to perform audit-log
-                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, this.currentRecords, otherParams, this.userId);
+                        if (this.logUpdate) await this.transLog.updateLog(this.paramItems.coll, this.currentRecs, otherParams, this.userId);
                         return getResMessage('success', {
                             message: 'Requested action(s) performed successfully.',
                             value  : {

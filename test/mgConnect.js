@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2019-01-07 | @Updated: 2019-08-11
+ * @Author: abbeymart | Abi Akindele | @Created: 2019-01-07 | @Updated: 2019-08-11, 2020-05-05
  * @Company: mConnect.biz | @License: MIT
  * @Description: MongoDB database connection | database collection handle (single and pool)
  */
@@ -27,7 +27,7 @@ let dbString = '',
 
 //const authMechanism = 'DEFAULT';
 
-if ( dbenv === 'production' && process.env.MONGODB_URI ) {
+if (dbenv === 'production' && process.env.MONGODB_URI) {
     dbString = process.env.MONGODB_URI;
 } else {
     // dbString = `mongodb://${dataSource.host}:${dataSource.port}/${dataSource.database}?authMechanism=${authMechanism}`;
@@ -40,10 +40,11 @@ if ( dbenv === 'production' && process.env.MONGODB_URI ) {
 
 // setup db-connection pool
 const options = {
-    poolSize         : 20,
-    reconnectTries   : Number.MAX_VALUE,
-    reconnectInterval: 1000,
-    useNewUrlParser  : true,
+    poolSize          : 20,
+    reconnectTries    : Number.MAX_VALUE,
+    reconnectInterval : 1000,
+    useNewUrlParser   : true,
+    useUnifiedTopology: true
 };
 
 // connect to the server, pool
@@ -58,8 +59,8 @@ async function dbConnect() {
         client = await mgdb;
         db     = client.db(dbName);
         return db;
-    } catch ( err ) {
-        if ( client ) await client.close();
+    } catch (err) {
+        if (client) await client.close();
         console.error('MongoDB connection error:' + err.stack);
         return {
             code   : 'error',
@@ -68,4 +69,4 @@ async function dbConnect() {
     }
 }
 
-module.exports = { dbConnect, mgdb };
+module.exports = {dbConnect, mgdb};

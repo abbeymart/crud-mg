@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2019-06-12 | @Updated: 2019-08-12
+ * @Author: abbeymart | Abi Akindele | @Created: 2019-06-12 | @Updated: 2020-05-05
  * @Company: mConnect.biz | @License: MIT
  * @Description: @mconnect/crud testing, DeleteRecord
  */
@@ -11,9 +11,9 @@
 const {suite, test, before} = require('mocha');
 const ok                    = require('./assert');
 
-const {dbConnect}             = require('./mgConnect');
-const DeleteRecord            = require('../src/DeleteRecord');
-const {tokenId, testUserInfo} = require('./token');
+const {dbConnect}                     = require('./mgConnect');
+const {DeleteRecord, newDeleteRecord} = require('../src/DeleteRecord');
+const {tokenId, testUserInfo}         = require('./token');
 
 let params,
     queryParams = {
@@ -46,33 +46,35 @@ suite('@mconnect/crud package Testing - DeleteRecord:', () => {
             ok(typeof res === 'object', `response should be an object: ${res}`);
         });
         test('should return valid instance record, function-call', () => {
-            const res = new DeleteRecord(dbConnect, params, options);
+            const res = newDeleteRecord(dbConnect, params, options);
             ok(typeof res === 'object', `response should be an object: ${res}`);
         });
         test('should successfully delete record, by docId', async () => {
             params            = {
                 coll      : 'locations',
                 parentColl: ['locations'],
-                docId     : ['5d02f4417288e1397420f75a'],
+                docId     : ['5d02f6ee61ac813a548cb5d8'],
                 token,
                 userInfo,
             };
-            const resInstance = DeleteRecord(dbConnect, params);
+            const resInstance = newDeleteRecord(dbConnect, params);
             const res         = await resInstance.deleteRecord();
-            ok(res.code === 'success' || res.code === 'notFound', `response-code should be: success or notFound`);
+            console.log('response code: ', res.code);
+            ok(res.code === 'success' || res.code === 'notFound' || res.code === 'removeError', `response-code should be: success, notFound or removeError`);
         });
         test('should successfully delete records, by docIds', async () => {
             params            = {
                 coll      : 'locations',
                 parentColl: ['locations'],
                 childColl : ['locations'],
-                docId     : ['5d02f6616942ac49cccb0b6c', '5d02f569cf74493f78f926cc'],
+                docId     : ['5d02f6ee61ac813a548cb5d8', '5dd5db3eb7566bae147428c0'],
                 token,
                 userInfo,
             };
-            const resInstance = DeleteRecord(dbConnect, params);
+            const resInstance = newDeleteRecord(dbConnect, params);
             const res         = await resInstance.deleteRecord();
-            ok(res.code === 'success' || res.code === 'notFound', `response-code should be: success or notFound`);
+            console.log('response code: ', res.code);
+            ok(res.code === 'success' || res.code === 'notFound' || res.code === 'removeError', `response-code should be: success, notFound or removeError`);
         });
         test('should successfully delete records, by queryParams (admin)', async () => {
             params            = {
@@ -85,22 +87,22 @@ suite('@mconnect/crud package Testing - DeleteRecord:', () => {
                 token,
                 userInfo,
             };
-            const resInstance = DeleteRecord(dbConnect, params);
+            const resInstance = newDeleteRecord(dbConnect, params);
             const res         = await resInstance.deleteRecord();
             console.log('param-delete-res: ', res);
-            ok(res.code === 'success' || res.code === 'notFound', `response-code should be: success or notFound`);
+            ok(res.code === 'success' || res.code === 'notFound' || res.code === 'removeError', `response-code should be: success, notFound or removeError`);
         });
     });
     suite('Negative testing:', () => {
         test('should return paramsError, with null appDb', async () => {
-            const resInstance = DeleteRecord('', params, options);
+            const resInstance = newDeleteRecord('', params, options);
             const res         = await resInstance.deleteRecord();
             ok(res['code'] === 'paramsError', `response should be a function: ${res['code']}`);
         });
         test('should return unAuthorized, with invalid token', async () => {
             params.token      = 'invalid';
             params.userInfo   = {};
-            const resInstance = DeleteRecord(dbConnect, params, options);
+            const resInstance = newDeleteRecord(dbConnect, params, options);
             const res         = await resInstance.deleteRecord();
             ok(res['code'] === 'unAuthorized', `response should be : unAuthorized`);
         });
@@ -113,11 +115,12 @@ suite('@mconnect/crud package Testing - DeleteRecord:', () => {
                 token,
                 userInfo,
             };
-            const resInstance = DeleteRecord(dbConnect, params);
+            const resInstance = newDeleteRecord(dbConnect, params);
             const res         = await resInstance.deleteRecord();
-            ok(res.code === 'subItem' || res.code === 'notFound', `response-code should be: subItem or notFound`);
+            console.log('response code: ', res.code);
+            ok(res.code === 'subItem' || res.code === 'notFound' || res.code === 'removeError', `response-code should be: subItem, notFound or removeError`);
         });
-        test('should successfully delete records, by queryParams (non-admin)', async () => {
+        test('should respond with removeError or unAuthorized code for invalid token / user)', async () => {
             params            = {
                 coll       : 'locations',
                 parentColl : ['locations'],
@@ -128,7 +131,7 @@ suite('@mconnect/crud package Testing - DeleteRecord:', () => {
                 token      : 'absdfjsjflksdjkllfhsjkbflsjfkjlslkfskflfsklfsfk',
                 userInfo   : {},
             };
-            const resInstance = DeleteRecord(dbConnect, params);
+            const resInstance = newDeleteRecord(dbConnect, params);
             const res         = await resInstance.deleteRecord();
             ok(res.code === 'removeError' || res.code === 'unAuthorized', `response-code should be: removeError or unAuthorized`);
         });
