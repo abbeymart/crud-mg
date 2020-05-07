@@ -1,5 +1,9 @@
 # Historical logs
 
+## Version 0.1.2
+- Release date: May 06, 2020
+- Correct this.currentRecords not defined, should be this.currentRecs
+
 ## Version 0.1.1
 - Release date: May 06, 2020
 - Correct db (should be this.db) not defined error in DeleteRecord api/class

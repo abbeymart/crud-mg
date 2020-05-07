@@ -290,9 +290,9 @@ class DeleteRecord extends CrudRecord {
             }
 
             // permit task, by owner, role or admin
-            const taskPermitted = await this.currentRecords.every(item => {
+            const taskPermitted = await this.currentRecs.every(item => {
                 return (item.createdBy.toString() === this.userId.toString());
-            }) || collRolePermitted || docRolePermitted ||  this.isAdmin;
+            }) || collRolePermitted || docRolePermitted || this.isAdmin;
 
             if (!taskPermitted) {
                 return getResMessage('unAuthorized', {
@@ -311,7 +311,7 @@ class DeleteRecord extends CrudRecord {
         return new Promise(async (resolve) => {
             // ids of records to be deleted, from queryParams
             this.docIds = [];           // reset docIds instance value
-            this.currentRecords.forEach(item => {
+            this.currentRecs.forEach(item => {
                 this.docIds.push(item._id);
             });
             resolve(await this.taskPermitted());
@@ -419,7 +419,7 @@ class DeleteRecord extends CrudRecord {
                     await cacheHash.deleteCache(this.paramItems.coll);
                     // check the audit-log settings - to perform audit-log
                     if (this.logDelete) {
-                        await this.transLog.deleteLog(this.paramItems.coll, this.currentRecords, this.userId);
+                        await this.transLog.deleteLog(this.paramItems.coll, this.currentRecs, this.userId);
                     }
                     resolve(getResMessage('success', {
                         message: 'Item/record deleted successfully',
@@ -447,7 +447,7 @@ class DeleteRecord extends CrudRecord {
                     await cacheHash.deleteCache(this.paramItems.coll);
                     // check the audit-log settings - to perform audit-log
                     if (this.logDelete) {
-                        await this.transLog.deleteLog(this.paramItems.coll, this.currentRecords, this.userId);
+                        await this.transLog.deleteLog(this.paramItems.coll, this.currentRecs, this.userId);
                     }
                     resolve(getResMessage('success', {
                         message: 'Item/record deleted successfully',
