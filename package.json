@@ -1,6 +1,6 @@
 {
   "name": "@mconnect/crud-mg",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "mConnect MongoDB CRUD operations, crud-mongo re-write",
   "main": "index.js",
   "directories": {
