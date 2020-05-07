@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-03
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-06
  * Updated 2018-04-08, prototype-to-class
  * @Company: mConnect.biz | @License: MIT
  * @Description: delete one or more records / documents
@@ -95,7 +95,7 @@ class DeleteRecord extends CrudRecord {
             try {
                 // use / activate database
                 this.db   = await this.dbConnect();
-                this.coll = db.collection(this.paramItems.coll);
+                this.coll = this.db.collection(this.paramItems.coll);
 
                 // id(s): convert string to ObjectId
                 this.docIds = this.paramItems.docId.length > 0 ? this.paramItems.docId.map(id => ObjectId(id)) : [];
@@ -141,7 +141,7 @@ class DeleteRecord extends CrudRecord {
             try {
                 // use / activate database
                 this.db   = await this.dbConnect();
-                this.coll = db.collection(this.paramItems.coll);
+                this.coll = this.db.collection(this.paramItems.coll);
 
                 return new Promise(async (resolve) => {
                     // check if records exist, for delete and audit-log
