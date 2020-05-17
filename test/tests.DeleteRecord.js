@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2019-06-12 | @Updated: 2020-05-05
+ * @Author: abbeymart | Abi Akindele | @Created: 2019-06-12 | @Updated: 2020-05-16
  * @Company: mConnect.biz | @License: MIT
  * @Description: @mconnect/crud testing, DeleteRecord
  */
@@ -74,7 +74,7 @@ suite('@mconnect/crud package Testing - DeleteRecord:', () => {
             const resInstance = newDeleteRecord(dbConnect, params);
             const res         = await resInstance.deleteRecord();
             console.log('response code: ', res.code);
-            ok(res.code === 'success' || res.code === 'notFound' || res.code === 'removeError', `response-code should be: success, notFound or removeError`);
+            ok(res.code === 'success' || res.code === 'notFound' || res.code === 'removeError' || res.code === 'subItems', `response-code should be: success, notFound, subItems or removeError`);
         });
         test('should successfully delete records, by queryParams (admin)', async () => {
             params            = {
@@ -90,7 +90,7 @@ suite('@mconnect/crud package Testing - DeleteRecord:', () => {
             const resInstance = newDeleteRecord(dbConnect, params);
             const res         = await resInstance.deleteRecord();
             console.log('param-delete-res: ', res);
-            ok(res.code === 'success' || res.code === 'notFound' || res.code === 'removeError', `response-code should be: success, notFound or removeError`);
+            ok(res.code === 'success' || res.code === 'notFound' || res.code === 'removeError' || res.code === 'subItems', `response-code should be: success, notFound, subItems or removeError`);
         });
     });
     suite('Negative testing:', () => {

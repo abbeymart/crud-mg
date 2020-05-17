@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-03
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16
  * @Company: mConnect.biz | @License: MIT
  * @Description: get records, by params, by role / by userId | cache-in-memory
  */
@@ -240,7 +240,12 @@ class GetRecord extends CrudRecord {
             }
         }
         // get items by userRole
-        await this.taskPermitted();
+        try {
+            await this.taskPermitted();
+        } catch (e) {
+            this.actionAuthorized = false;
+        }
+
         if (userActive && this.actionAuthorized) {
             // this.actionAuthorized: apply to all collections/functions
             // Get the item(s) by docId(s) or queryParams
@@ -514,6 +519,7 @@ class GetRecord extends CrudRecord {
                 collRolePermitted = false;
 
             // collection level permission
+            this.db           = await this.dbConnect();
             const serviceColl = this.db.collection(this.serviceColl);
             const collInfo    = await serviceColl.find({
                 name: {$or: [this.paramItems.coll.toLowerCase(), (this.paramItems.coll[0].toUpperCase() + this.paramItems.coll.slice(1).toLowerCase())]},

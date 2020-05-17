@@ -1,5 +1,9 @@
 # Historical logs
 
+## Version 0.1.3
+- Release date: May 16, 2020
+- Correct the unhandled exception due to null/undefined in GetRecord and DeleteRecord APIs"
+
 ## Version 0.1.2
 - Release date: May 06, 2020
 - Correct this.currentRecords not defined, should be this.currentRecs

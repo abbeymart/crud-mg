@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-06
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16
  * Updated 2018-04-08, prototype-to-class
  * @Company: mConnect.biz | @License: MIT
  * @Description: delete one or more records / documents
@@ -368,7 +368,7 @@ class DeleteRecord extends CrudRecord {
                             $in: this.docIds
                         }
                     });
-                    if (collItem || Object.keys(collItem).length) {
+                    if (collItem || collItem && Object.keys(collItem).length) {
                         this.subItems.push(true);
                         return true;
                     } else {

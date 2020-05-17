@@ -5,7 +5,7 @@
  */
 
 module.exports = {
-    tokenId     : '29ae1b3f393a8e8903b63d194918d1b4bbad953931998c2b47db026aa96a0fbb',
+    tokenId     : '1724091e4c2828cf095c00ddb21114fd3c8afc424d0b7da7d94c963a92d206a8',
     testUserInfo: {
         defaultGroup: "5b4543a417d6841d393e0e99",
         email       : "abbeya1@yahoo.com",
